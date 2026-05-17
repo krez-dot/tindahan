@@ -1,143 +1,253 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import API from "../api/axios";
-
+import { Link, useNavigate } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import API from "../api/axios";
 
-// Fix default marker icon bug in Leaflet + Vite
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl:
-    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
   shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
+
+const CATEGORIES = ["All", "Food", "Retail", "Services", "Health", "Education", "Others"];
 
 function Home() {
   const [businesses, setBusinesses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-
-  const filtered = businesses.filter(
-    (b) =>
-      b.name.toLowerCase().includes(search.toLowerCase()) ||
-      b.description?.toLowerCase().includes(search.toLowerCase()) ||
-      b.address?.toLowerCase().includes(search.toLowerCase()),
-  );
+  const [activeCategory, setActiveCategory] = useState("All");
+  const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem("user") || "null");
 
   useEffect(() => {
     API.get("/businesses")
-      .then((res) => {
-        setBusinesses(res.data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error(err);
-        setLoading(false);
-      });
+      .then((res) => { setBusinesses(res.data); setLoading(false); })
+      .catch(() => setLoading(false));
   }, []);
 
-  if (loading) return <p style={{ padding: "24px" }}>Loading businesses...</p>;
+  const filtered = businesses.filter((b) => {
+    const matchSearch =
+      b.name.toLowerCase().includes(search.toLowerCase()) ||
+      b.description?.toLowerCase().includes(search.toLowerCase()) ||
+      b.address?.toLowerCase().includes(search.toLowerCase());
+    return matchSearch;
+  });
 
   return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>🛖 Discover Local Businesses in Tarlac</h1>
-      <p style={styles.subtitle}>Support your community, shop local!</p>
+    <div style={{ backgroundColor: "#fdf8f3", minHeight: "100vh" }}>
 
-      <input
-        style={styles.search}
-        type="text"
-        placeholder="🔍 Search businesses, food, services..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
+      {/* Hero */}
+      <div style={styles.hero}>
+        <div style={styles.heroInner}>
+          <p style={styles.heroEyebrow}>🌺 Tarlac City, Philippines</p>
+          <h1 style={styles.heroTitle}>Find the best local<br />businesses near you</h1>
+          <p style={styles.heroSub}>Support your community. Discover hidden gems. Shop local! 🛖</p>
 
-      <MapContainer
-        center={[15.4755, 120.596]}
-        zoom={13}
-        style={{
-          height: "400px",
-          width: "100%",
-          borderRadius: "12px",
-          marginBottom: "32px",
-        }}
-      >
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-        {businesses
-          .filter((b) => b.lat && b.lng)
-          .map((b) => (
-            <Marker key={b.id} position={[b.lat, b.lng]}>
-              <Popup>
-                <strong>{b.name}</strong>
-                <br />
-                {b.address}
-              </Popup>
-            </Marker>
-          ))}
-      </MapContainer>
+          <div style={styles.searchWrap}>
+            <span style={styles.searchIcon}>🔍</span>
+            <input
+              style={styles.searchInput}
+              type="text"
+              placeholder="Search karinderya, bakery, sari-sari store..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
 
-      {businesses.length === 0 ? (
-        <p>No businesses yet. Be the first to add one!</p>
-      ) : (
-        <div style={styles.grid}>
-          {filtered.map((b) => (
-            <Link to={`/business/${b.id}`} key={b.id} style={styles.card}>
-              <h2 style={styles.cardTitle}>{b.name}</h2>
-              <p style={styles.cardDesc}>{b.description}</p>
-              <p style={styles.cardAddr}>📍 {b.address}</p>
-              {b.is_verified && <span style={styles.badge}>✅ Verified</span>}
-            </Link>
+          {user?.role === "owner" && (
+            <button style={styles.ctaBtn} onClick={() => navigate("/add-business")}>
+              + List your business
+            </button>
+          )}
+          {!user && (
+            <div style={styles.ctaRow}>
+              <span style={styles.ctaText}>Own a business?</span>
+              <Link to="/register" style={styles.ctaBtn}>List it for free →</Link>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={styles.content}>
+
+        {/* Category pills */}
+        <div style={styles.pills}>
+          {CATEGORIES.map((cat) => (
+            <button
+              key={cat}
+              style={activeCategory === cat ? styles.pillActive : styles.pill}
+              onClick={() => setActiveCategory(cat)}
+            >
+              {cat === "All" && "🏪 "}
+              {cat === "Food" && "🍚 "}
+              {cat === "Retail" && "🛍️ "}
+              {cat === "Services" && "🔧 "}
+              {cat === "Health" && "💊 "}
+              {cat === "Education" && "📚 "}
+              {cat === "Others" && "✨ "}
+              {cat}
+            </button>
           ))}
         </div>
-      )}
+
+        {/* Map */}
+        <div style={styles.mapWrap}>
+          <MapContainer
+            center={[15.4755, 120.5960]}
+            zoom={13}
+            style={{ height: "380px", width: "100%", borderRadius: "16px" }}
+          >
+            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            {businesses.filter(b => b.lat && b.lng).map((b) => (
+              <Marker key={b.id} position={[b.lat, b.lng]}>
+                <Popup><strong>{b.name}</strong><br />{b.address}</Popup>
+              </Marker>
+            ))}
+          </MapContainer>
+        </div>
+
+        {/* Listings */}
+        <div style={styles.sectionHeader}>
+          <h2 style={styles.sectionTitle}>
+            {activeCategory === "All" ? "All businesses" : activeCategory}
+            <span style={styles.count}> · {filtered.length} found</span>
+          </h2>
+        </div>
+
+        {loading ? (
+          <p style={{ color: "#888", padding: "24px 0" }}>Loading businesses...</p>
+        ) : filtered.length === 0 ? (
+          <div style={styles.empty}>
+            <p style={{ fontSize: "40px" }}>🔍</p>
+            <p>No businesses found. Try a different search!</p>
+          </div>
+        ) : (
+          <div style={styles.grid}>
+            {filtered.map((b) => (
+              <Link to={`/business/${b.id}`} key={b.id} style={styles.card}>
+                <div style={styles.cardTop}>
+                  <span style={styles.cardEmoji}>🛖</span>
+                  {b.is_verified && <span style={styles.verified}>✅ Verified</span>}
+                </div>
+                <h3 style={styles.cardTitle}>{b.name}</h3>
+                <p style={styles.cardDesc}>{b.description}</p>
+                <p style={styles.cardAddr}>📍 {b.address}</p>
+                <div style={styles.cardFooter}>
+                  <span style={styles.ownerTag}>👤 {b.owner_name}</span>
+                  <span style={styles.viewMore}>View →</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
+const ORANGE = "#e8601c";
+const ORANGE_LIGHT = "#fff3ec";
+const DARK = "#2d2413";
+
 const styles = {
-  container: { padding: "24px", maxWidth: "1100px", margin: "0 auto" },
-  title: { fontSize: "28px", marginBottom: "8px" },
-  subtitle: { color: "#666", marginBottom: "32px" },
+  hero: {
+    background: "linear-gradient(135deg, #3d2c1e 0%, #7a4a2a 60%, #e8601c 100%)",
+    padding: "64px 24px 80px",
+    color: "white",
+  },
+  heroInner: { maxWidth: "700px", margin: "0 auto", textAlign: "center" },
+  heroTitle: { fontSize: "42px", fontWeight: "800", lineHeight: "1.2", marginBottom: "16px", color: "white" },
+  heroEyebrow: { fontSize: "14px", letterSpacing: "2px", opacity: 0.8, marginBottom: "12px", textTransform: "uppercase", color: "white" },
+  heroSub: { fontSize: "18px", opacity: 0.85, marginBottom: "32px", color: "white" },
+  searchWrap: {
+    display: "flex",
+    alignItems: "center",
+    backgroundColor: "white",
+    borderRadius: "50px",
+    padding: "6px 20px",
+    boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+    marginBottom: "24px",
+  },
+  searchIcon: { fontSize: "18px", marginRight: "10px" },
+  searchInput: {
+    flex: 1,
+    border: "none",
+    outline: "none",
+    fontSize: "16px",
+    padding: "10px 0",
+    backgroundColor: "transparent",
+    color: DARK,
+  },
+  ctaRow: { display: "flex", alignItems: "center", justifyContent: "center", gap: "12px" },
+  ctaText: { opacity: 0.85, fontSize: "15px" },
+  ctaBtn: {
+    backgroundColor: "white",
+    color: ORANGE,
+    border: "none",
+    padding: "12px 28px",
+    borderRadius: "50px",
+    fontWeight: "700",
+    fontSize: "15px",
+    cursor: "pointer",
+    textDecoration: "none",
+    boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
+  },
+  content: { maxWidth: "1100px", margin: "0 auto", padding: "32px 24px" },
+  pills: { display: "flex", gap: "10px", flexWrap: "wrap", marginBottom: "28px" },
+  pill: {
+    padding: "8px 18px",
+    borderRadius: "50px",
+    border: "1.5px solid #e0d5c8",
+    backgroundColor: "white",
+    cursor: "pointer",
+    fontSize: "14px",
+    color: "#555",
+    fontWeight: "500",
+  },
+  pillActive: {
+    padding: "8px 18px",
+    borderRadius: "50px",
+    border: "1.5px solid #e8601c",
+    backgroundColor: "#fff3ec",
+    cursor: "pointer",
+    fontSize: "14px",
+    color: "#e8601c",
+    fontWeight: "700",
+  },
+  mapWrap: { marginBottom: "36px", boxShadow: "0 4px 24px rgba(0,0,0,0.10)", borderRadius: "16px", overflow: "hidden" },
+  sectionHeader: { marginBottom: "20px" },
+  sectionTitle: { fontSize: "22px", fontWeight: "700", color: DARK },
+  count: { fontWeight: "400", color: "#999", fontSize: "18px" },
+  empty: { textAlign: "center", padding: "60px 0", color: "#888" },
   grid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+    gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
     gap: "20px",
   },
   card: {
     backgroundColor: "white",
-    border: "1px solid #e0e0e0",
-    borderRadius: "12px",
-    padding: "20px",
+    borderRadius: "16px",
+    padding: "24px",
     textDecoration: "none",
     color: "inherit",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-    transition: "transform 0.2s",
+    boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+    border: "1px solid #f0e8df",
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
   },
-  cardTitle: { fontSize: "18px", marginBottom: "8px", color: "#2d2d2d" },
-  cardDesc: { fontSize: "14px", color: "#666", marginBottom: "12px" },
-  cardAddr: { fontSize: "13px", color: "#888" },
-  badge: {
-    display: "inline-block",
-    marginTop: "10px",
-    fontSize: "12px",
-    backgroundColor: "#eaf3de",
-    color: "#3b6d11",
-    padding: "3px 10px",
-    borderRadius: "20px",
-  },
-  search: {
-    display: "block",
-    width: "100%",
-    padding: "14px 20px",
-    fontSize: "16px",
-    borderRadius: "12px",
-    border: "1px solid #ddd",
-    marginBottom: "24px",
-    boxSizing: "border-box",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-  },
+  cardTop: { display: "flex", justifyContent: "space-between", alignItems: "center" },
+  cardEmoji: { fontSize: "28px" },
+  verified: { fontSize: "12px", backgroundColor: "#eaf3de", color: "#3b6d11", padding: "3px 10px", borderRadius: "20px" },
+  cardTitle: { fontSize: "18px", fontWeight: "700", color: DARK, margin: 0 },
+  cardDesc: { fontSize: "14px", color: "#666", margin: 0, lineHeight: "1.5" },
+  cardAddr: { fontSize: "13px", color: "#999", margin: 0 },
+  cardFooter: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "8px" },
+  ownerTag: { fontSize: "12px", color: "#aaa" },
+  viewMore: { fontSize: "13px", color: "#e8601c", fontWeight: "600" },
 };
 
 export default Home;
