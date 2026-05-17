@@ -9,7 +9,8 @@ import L from "leaflet";
 // Fix default marker icon bug in Leaflet + Vite
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconRetinaUrl:
+    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
   shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
@@ -17,6 +18,14 @@ L.Icon.Default.mergeOptions({
 function Home() {
   const [businesses, setBusinesses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+
+  const filtered = businesses.filter(
+    (b) =>
+      b.name.toLowerCase().includes(search.toLowerCase()) ||
+      b.description?.toLowerCase().includes(search.toLowerCase()) ||
+      b.address?.toLowerCase().includes(search.toLowerCase()),
+  );
 
   useEffect(() => {
     API.get("/businesses")
@@ -37,27 +46,43 @@ function Home() {
       <h1 style={styles.title}>🛖 Discover Local Businesses in Tarlac</h1>
       <p style={styles.subtitle}>Support your community, shop local!</p>
 
+      <input
+        style={styles.search}
+        type="text"
+        placeholder="🔍 Search businesses, food, services..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+
       <MapContainer
-  center={[15.4755, 120.5960]}
-  zoom={13}
-  style={{ height: "400px", width: "100%", borderRadius: "12px", marginBottom: "32px" }}
->
-  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-  {businesses.filter(b => b.lat && b.lng).map(b => (
-    <Marker key={b.id} position={[b.lat, b.lng]}>
-      <Popup>
-        <strong>{b.name}</strong><br />
-        {b.address}
-      </Popup>
-    </Marker>
-  ))}
-</MapContainer>
+        center={[15.4755, 120.596]}
+        zoom={13}
+        style={{
+          height: "400px",
+          width: "100%",
+          borderRadius: "12px",
+          marginBottom: "32px",
+        }}
+      >
+        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        {businesses
+          .filter((b) => b.lat && b.lng)
+          .map((b) => (
+            <Marker key={b.id} position={[b.lat, b.lng]}>
+              <Popup>
+                <strong>{b.name}</strong>
+                <br />
+                {b.address}
+              </Popup>
+            </Marker>
+          ))}
+      </MapContainer>
 
       {businesses.length === 0 ? (
         <p>No businesses yet. Be the first to add one!</p>
       ) : (
         <div style={styles.grid}>
-          {businesses.map((b) => (
+          {filtered.map((b) => (
             <Link to={`/business/${b.id}`} key={b.id} style={styles.card}>
               <h2 style={styles.cardTitle}>{b.name}</h2>
               <p style={styles.cardDesc}>{b.description}</p>
@@ -101,6 +126,17 @@ const styles = {
     color: "#3b6d11",
     padding: "3px 10px",
     borderRadius: "20px",
+  },
+  search: {
+    display: "block",
+    width: "100%",
+    padding: "14px 20px",
+    fontSize: "16px",
+    borderRadius: "12px",
+    border: "1px solid #ddd",
+    marginBottom: "24px",
+    boxSizing: "border-box",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
   },
 };
 
