@@ -22,7 +22,7 @@ function Home() {
 
   return (
     <div style={styles.container}>
-      <h1 style={styles.title}>🛖 Discover Local Businesses in Baguio</h1>
+      <h1 style={styles.title}>🛖 Discover Local Businesses in Tarlac</h1>
       <p style={styles.subtitle}>Support your community, shop local!</p>
 
       {businesses.length === 0 ? (
