@@ -2,6 +2,18 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import API from "../api/axios";
 
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+
+// Fix default marker icon bug in Leaflet + Vite
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+});
+
 function Home() {
   const [businesses, setBusinesses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,6 +36,22 @@ function Home() {
     <div style={styles.container}>
       <h1 style={styles.title}>🛖 Discover Local Businesses in Tarlac</h1>
       <p style={styles.subtitle}>Support your community, shop local!</p>
+
+      <MapContainer
+  center={[15.4755, 120.5960]}
+  zoom={13}
+  style={{ height: "400px", width: "100%", borderRadius: "12px", marginBottom: "32px" }}
+>
+  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+  {businesses.filter(b => b.lat && b.lng).map(b => (
+    <Marker key={b.id} position={[b.lat, b.lng]}>
+      <Popup>
+        <strong>{b.name}</strong><br />
+        {b.address}
+      </Popup>
+    </Marker>
+  ))}
+</MapContainer>
 
       {businesses.length === 0 ? (
         <p>No businesses yet. Be the first to add one!</p>
