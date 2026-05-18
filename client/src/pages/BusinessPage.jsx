@@ -7,6 +7,11 @@ function BusinessPage() {
   const navigate = useNavigate();
   const [business, setBusiness] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [reviews, setReviews] = useState([]);
+  const [reviewForm, setReviewForm] = useState({ rating: 5, body: "" });
+  const [reviewError, setReviewError] = useState("");
+  const [reviewSuccess, setReviewSuccess] = useState(false);
+  const user = JSON.parse(localStorage.getItem("user") || "null");
 
   useEffect(() => {
     API.get(`/businesses/${id}`)
@@ -16,6 +21,27 @@ function BusinessPage() {
       })
       .catch(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    API.get(`/reviews/${id}`).then((res) => setReviews(res.data));
+  }, [id]);
+
+  const fetchReviews = () => {
+    API.get(`/reviews/${id}`).then((res) => setReviews(res.data));
+  };
+
+  const submitReview = async (e) => {
+    e.preventDefault();
+    setReviewError("");
+    try {
+      await API.post(`/reviews/${id}`, reviewForm);
+      setReviewSuccess(true);
+      setReviewForm({ rating: 5, body: "" });
+      fetchReviews();
+    } catch (err) {
+      setReviewError(err.response?.data?.error || "Failed to submit review");
+    }
+  };
 
   if (loading)
     return (
@@ -50,92 +76,169 @@ function BusinessPage() {
         </div>
       </div>
 
+      {/* All cards in one column */}
       <div style={styles.content}>
-        <div style={styles.main}>
-          {/* About section */}
-          <div style={styles.card}>
-            <h2 style={styles.cardTitle}>About this business</h2>
-            <p style={styles.description}>
-              {business.description || "No description provided."}
-            </p>
-          </div>
+        {/* About */}
+        <div style={styles.card}>
+          <h2 style={styles.cardTitle}>About this business</h2>
+          <p style={styles.description}>
+            {business.description || "No description provided."}
+          </p>
+        </div>
 
-          {/* Details section */}
-          <div style={styles.card}>
-            <h2 style={styles.cardTitle}>Business details</h2>
-            <div style={styles.detailsList}>
-              <div style={styles.detailRow}>
-                <span style={styles.detailIcon}>📍</span>
-                <div>
-                  <p style={styles.detailLabel}>Address</p>
-                  <p style={styles.detailValue}>
-                    {business.address || "Not provided"}
-                  </p>
-                </div>
+        {/* Details */}
+        <div style={styles.card}>
+          <h2 style={styles.cardTitle}>Business details</h2>
+          <div style={styles.detailsList}>
+            <div style={styles.detailRow}>
+              <span style={styles.detailIcon}>📍</span>
+              <div>
+                <p style={styles.detailLabel}>Address</p>
+                <p style={styles.detailValue}>
+                  {business.address || "Not provided"}
+                </p>
               </div>
-              <div style={styles.detailRow}>
-                <span style={styles.detailIcon}>📞</span>
-                <div>
-                  <p style={styles.detailLabel}>Phone</p>
-                  <p style={styles.detailValue}>
-                    {business.phone || "Not provided"}
-                  </p>
-                </div>
+            </div>
+            <div style={styles.detailRow}>
+              <span style={styles.detailIcon}>📞</span>
+              <div>
+                <p style={styles.detailLabel}>Phone</p>
+                <p style={styles.detailValue}>
+                  {business.phone || "Not provided"}
+                </p>
               </div>
-              <div style={styles.detailRow}>
-                <span style={styles.detailIcon}>👤</span>
-                <div>
-                  <p style={styles.detailLabel}>Owner</p>
-                  <p style={styles.detailValue}>{business.owner_name}</p>
-                </div>
+            </div>
+            <div style={styles.detailRow}>
+              <span style={styles.detailIcon}>👤</span>
+              <div>
+                <p style={styles.detailLabel}>Owner</p>
+                <p style={styles.detailValue}>{business.owner_name}</p>
               </div>
-              <div style={styles.detailRow}>
-                <span style={styles.detailIcon}>📅</span>
-                <div>
-                  <p style={styles.detailLabel}>Listed on</p>
-                  <p style={styles.detailValue}>
-                    {new Date(business.created_at).toLocaleDateString("en-PH", {
+            </div>
+            <div style={styles.detailRow}>
+              <span style={styles.detailIcon}>📅</span>
+              <div>
+                <p style={styles.detailLabel}>Listed on</p>
+                <p style={styles.detailValue}>
+                  {new Date(business.created_at).toLocaleDateString("en-PH", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Contact */}
+        <div style={styles.card}>
+          <h2 style={styles.cardTitle}>Contact this business</h2>
+          {business.phone ? (
+            <a href={`tel:${business.phone}`} style={styles.contactBtn}>
+              📞 Call {business.phone}
+            </a>
+          ) : (
+            <p style={styles.noContact}>No phone number listed</p>
+          )}
+          {business.lat && business.lng && (
+            <a
+              href={`https://www.google.com/maps?q=${business.lat},${business.lng}`}
+              target="_blank"
+              rel="noreferrer"
+              style={{ ...styles.mapsBtn, marginTop: "12px" }}
+            >
+              🗺️ Open in Google Maps
+            </a>
+          )}
+        </div>
+
+        {/* Reviews list */}
+        <div style={styles.card}>
+          <h2 style={styles.cardTitle}>
+            ⭐ Reviews {reviews.length > 0 && `(${reviews.length})`}
+          </h2>
+          {reviews.length === 0 ? (
+            <p style={{ color: "#aaa", fontSize: "14px" }}>
+              No reviews yet. Be the first!
+            </p>
+          ) : (
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "16px" }}
+            >
+              {reviews.map((r) => (
+                <div key={r.id} style={styles.reviewCard}>
+                  <div style={styles.reviewHeader}>
+                    <span style={styles.reviewerName}>
+                      👤 {r.reviewer_name}
+                    </span>
+                    <span style={styles.reviewStars}>
+                      {"⭐".repeat(r.rating)}
+                    </span>
+                  </div>
+                  <p style={styles.reviewBody}>{r.body}</p>
+                  <p style={styles.reviewDate}>
+                    {new Date(r.created_at).toLocaleDateString("en-PH", {
                       year: "numeric",
                       month: "long",
                       day: "numeric",
                     })}
                   </p>
                 </div>
-              </div>
+              ))}
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Sidebar */}
-        <div style={styles.sidebar}>
-          <div style={styles.sideCard}>
-            <h3 style={styles.sideCardTitle}>Contact this business</h3>
-            {business.phone ? (
-              <a href={`tel:${business.phone}`} style={styles.contactBtn}>
-                📞 Call {business.phone}
-              </a>
-            ) : (
-              <p style={styles.noContact}>No phone number listed</p>
+        {/* Write a review */}
+        {user && user.role !== "owner" && (
+          <div style={styles.card}>
+            <h2 style={styles.cardTitle}>✍️ Write a review</h2>
+            {reviewSuccess && (
+              <div style={styles.success}>✅ Review submitted! Salamat!</div>
             )}
-          </div>
-
-          <div style={styles.sideCard}>
-            <h3 style={styles.sideCardTitle}>Location</h3>
-            <p style={styles.locationText}>
-              📍 {business.address || "Address not available"}
-            </p>
-            {business.lat && business.lng && (
-              <a
-                href={`https://www.google.com/maps?q=${business.lat},${business.lng}`}
-                target="_blank"
-                rel="noreferrer"
-                style={styles.mapsBtn}
+            {reviewError && <div style={styles.error}>⚠️ {reviewError}</div>}
+            <form onSubmit={submitReview}>
+              <label style={styles.label}>Rating</label>
+              <div
+                style={{ display: "flex", gap: "8px", marginBottom: "16px" }}
               >
-                🗺️ Open in Google Maps
-              </a>
-            )}
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() =>
+                      setReviewForm({ ...reviewForm, rating: star })
+                    }
+                    style={{
+                      fontSize: "24px",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      opacity: reviewForm.rating >= star ? 1 : 0.3,
+                    }}
+                  >
+                    ⭐
+                  </button>
+                ))}
+              </div>
+              <label style={styles.label}>Your review</label>
+              <textarea
+                style={styles.textarea}
+                placeholder="Share your experience with this business..."
+                value={reviewForm.body}
+                onChange={(e) =>
+                  setReviewForm({ ...reviewForm, body: e.target.value })
+                }
+                rows={4}
+                required
+              />
+              <button type="submit" style={styles.btn}>
+                Submit review →
+              </button>
+            </form>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
@@ -171,7 +274,7 @@ const styles = {
     padding: "48px 24px",
     color: "white",
   },
-  bannerInner: { maxWidth: "900px", margin: "0 auto" },
+  bannerInner: { maxWidth: "720px", margin: "0 auto" },
   backLink: {
     background: "rgba(255,255,255,0.15)",
     border: "none",
@@ -207,7 +310,6 @@ const styles = {
     flexDirection: "column",
     gap: "20px",
   },
-  main: { display: "flex", flexDirection: "column", gap: "20px" },
   card: {
     backgroundColor: "white",
     borderRadius: "20px",
@@ -234,20 +336,6 @@ const styles = {
     marginBottom: "2px",
   },
   detailValue: { fontSize: "15px", color: DARK, fontWeight: "500" },
-  sidebar: { display: "flex", flexDirection: "column", gap: "16px" },
-  sideCard: {
-    backgroundColor: "white",
-    borderRadius: "20px",
-    padding: "24px",
-    boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
-    border: "1px solid #f0e8df",
-  },
-  sideCardTitle: {
-    fontSize: "16px",
-    fontWeight: "700",
-    color: DARK,
-    marginBottom: "16px",
-  },
   contactBtn: {
     display: "block",
     backgroundColor: ORANGE,
@@ -265,12 +353,6 @@ const styles = {
     textAlign: "center",
     padding: "12px 0",
   },
-  locationText: {
-    fontSize: "14px",
-    color: "#666",
-    marginBottom: "16px",
-    lineHeight: "1.6",
-  },
   mapsBtn: {
     display: "block",
     border: `1.5px solid ${ORANGE}`,
@@ -281,6 +363,76 @@ const styles = {
     fontWeight: "600",
     fontSize: "14px",
     textAlign: "center",
+  },
+  reviewCard: {
+    backgroundColor: "#fdf8f3",
+    borderRadius: "12px",
+    padding: "16px",
+    border: "1px solid #f0e8df",
+  },
+  reviewHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "8px",
+  },
+  reviewerName: { fontWeight: "600", fontSize: "14px", color: DARK },
+  reviewStars: { fontSize: "14px" },
+  reviewBody: {
+    fontSize: "14px",
+    color: "#555",
+    lineHeight: "1.6",
+    marginBottom: "8px",
+  },
+  reviewDate: { fontSize: "12px", color: "#aaa" },
+  success: {
+    backgroundColor: "#eaf3de",
+    color: "#3b6d11",
+    padding: "12px 16px",
+    borderRadius: "10px",
+    fontSize: "14px",
+    marginBottom: "16px",
+  },
+  error: {
+    backgroundColor: "#fff0f0",
+    color: "#cc0000",
+    padding: "12px 16px",
+    borderRadius: "10px",
+    fontSize: "14px",
+    marginBottom: "16px",
+  },
+  label: {
+    display: "block",
+    fontSize: "13px",
+    fontWeight: "600",
+    color: "#555",
+    marginBottom: "6px",
+  },
+  textarea: {
+    display: "block",
+    width: "100%",
+    padding: "12px 16px",
+    borderRadius: "12px",
+    border: "1.5px solid #e8e0d8",
+    fontSize: "15px",
+    outline: "none",
+    boxSizing: "border-box",
+    fontFamily: "Poppins, sans-serif",
+    color: DARK,
+    backgroundColor: "#fdfaf7",
+    resize: "vertical",
+    marginBottom: "16px",
+  },
+  btn: {
+    padding: "13px 32px",
+    backgroundColor: ORANGE,
+    color: "white",
+    border: "none",
+    borderRadius: "12px",
+    fontSize: "15px",
+    fontWeight: "700",
+    cursor: "pointer",
+    fontFamily: "Poppins, sans-serif",
   },
 };
 
