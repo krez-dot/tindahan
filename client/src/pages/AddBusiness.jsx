@@ -12,6 +12,7 @@ function AddBusiness() {
     lng: "",
     phone: "",
   });
+  const [photo, setPhoto] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -22,11 +23,21 @@ function AddBusiness() {
     setError("");
     setLoading(true);
     try {
-      await API.post("/businesses", {
+      const res = await API.post("/businesses", {
         ...form,
         lat: parseFloat(form.lat) || null,
         lng: parseFloat(form.lng) || null,
       });
+
+      // Upload photo if one was selected
+      if (photo) {
+        const formData = new FormData();
+        formData.append("photo", photo);
+        await API.post(`/upload/${res.data.id}`, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      }
+
       navigate("/");
     } catch (err) {
       setError(err.response?.data?.error || "Failed to create listing");
@@ -123,6 +134,29 @@ function AddBusiness() {
             </p>
           </div>
 
+          {/* Photo upload section */}
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>📸 Business photo</h3>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setPhoto(e.target.files[0])}
+              style={styles.fileInput}
+            />
+            {photo && (
+              <div style={{ marginTop: "12px" }}>
+                <img
+                  src={URL.createObjectURL(photo)}
+                  alt="preview"
+                  style={{ width: "100%", borderRadius: "12px", maxHeight: "200px", objectFit: "cover" }}
+                />
+                <p style={{ fontSize: "13px", color: "#aaa", marginTop: "8px" }}>
+                  ✅ {photo.name} selected
+                </p>
+              </div>
+            )}
+          </div>
+
           <div style={styles.actions}>
             <button type="button" style={styles.cancelBtn} onClick={() => navigate("/")}>
               Cancel
@@ -186,6 +220,18 @@ const styles = {
     color: "#2d2413",
     backgroundColor: "#fdfaf7",
     resize: "vertical",
+  },
+  fileInput: {
+    display: "block",
+    width: "100%",
+    padding: "12px",
+    borderRadius: "12px",
+    border: "1.5px dashed #e8e0d8",
+    fontSize: "14px",
+    cursor: "pointer",
+    backgroundColor: "#fdfaf7",
+    fontFamily: "Poppins, sans-serif",
+    boxSizing: "border-box",
   },
   hint: { fontSize: "13px", color: "#aaa", marginTop: "8px" },
   hintLink: { color: ORANGE, textDecoration: "none", fontWeight: "600" },

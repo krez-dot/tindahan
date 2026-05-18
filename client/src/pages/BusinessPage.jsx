@@ -8,6 +8,7 @@ function BusinessPage() {
   const [business, setBusiness] = useState(null);
   const [loading, setLoading] = useState(true);
   const [reviews, setReviews] = useState([]);
+  const [photos, setPhotos] = useState([]);
   const [reviewForm, setReviewForm] = useState({ rating: 5, body: "" });
   const [reviewError, setReviewError] = useState("");
   const [reviewSuccess, setReviewSuccess] = useState(false);
@@ -24,6 +25,10 @@ function BusinessPage() {
 
   useEffect(() => {
     API.get(`/reviews/${id}`).then((res) => setReviews(res.data));
+  }, [id]);
+
+  useEffect(() => {
+    API.get(`/upload/${id}`).then((res) => setPhotos(res.data));
   }, [id]);
 
   const fetchReviews = () => {
@@ -76,7 +81,6 @@ function BusinessPage() {
         </div>
       </div>
 
-      {/* All cards in one column */}
       <div style={styles.content}>
         {/* About */}
         <div style={styles.card}>
@@ -85,6 +89,34 @@ function BusinessPage() {
             {business.description || "No description provided."}
           </p>
         </div>
+
+        {/* Photos */}
+        {photos.length > 0 && (
+          <div style={styles.card}>
+            <h2 style={styles.cardTitle}>📸 Photos</h2>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+                gap: "12px",
+              }}
+            >
+              {photos.map((p) => (
+                <img
+                  key={p.id}
+                  src={p.url}
+                  alt="business"
+                  style={{
+                    width: "100%",
+                    borderRadius: "12px",
+                    height: "150px",
+                    objectFit: "cover",
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Details */}
         <div style={styles.card}>
