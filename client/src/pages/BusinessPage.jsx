@@ -9,6 +9,7 @@ function BusinessPage() {
   const [loading, setLoading] = useState(true);
   const [reviews, setReviews] = useState([]);
   const [photos, setPhotos] = useState([]);
+  const [saved, setSaved] = useState(false);
   const [reviewForm, setReviewForm] = useState({ rating: 5, body: "" });
   const [reviewError, setReviewError] = useState("");
   const [reviewSuccess, setReviewSuccess] = useState(false);
@@ -31,8 +32,22 @@ function BusinessPage() {
     API.get(`/upload/${id}`).then((res) => setPhotos(res.data));
   }, [id]);
 
+  useEffect(() => {
+    if (user) {
+      API.get(`/businesses/${id}/saved`)
+        .then((res) => setSaved(res.data.saved))
+        .catch(() => {});
+    }
+  }, [id]);
+
   const fetchReviews = () => {
     API.get(`/reviews/${id}`).then((res) => setReviews(res.data));
+  };
+
+  const toggleSave = async () => {
+    if (!user) return navigate("/login");
+    const res = await API.post(`/businesses/${id}/save`);
+    setSaved(res.data.saved);
   };
 
   const submitReview = async (e) => {
@@ -78,6 +93,14 @@ function BusinessPage() {
           {business.is_verified && (
             <span style={styles.verifiedBadge}>✅ Verified Business</span>
           )}
+          <div style={{ marginTop: "16px" }}>
+            <button
+              onClick={toggleSave}
+              style={saved ? styles.savedBtn : styles.saveBtn}
+            >
+              {saved ? "❤️ Saved!" : "🤍 Save business"}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -333,6 +356,28 @@ const styles = {
     borderRadius: "20px",
     fontSize: "14px",
     fontWeight: "600",
+  },
+  saveBtn: {
+    backgroundColor: "rgba(255,255,255,0.15)",
+    border: "1.5px solid white",
+    color: "white",
+    padding: "10px 24px",
+    borderRadius: "50px",
+    cursor: "pointer",
+    fontSize: "14px",
+    fontWeight: "600",
+    fontFamily: "Poppins, sans-serif",
+  },
+  savedBtn: {
+    backgroundColor: "white",
+    border: "none",
+    color: ORANGE,
+    padding: "10px 24px",
+    borderRadius: "50px",
+    cursor: "pointer",
+    fontSize: "14px",
+    fontWeight: "700",
+    fontFamily: "Poppins, sans-serif",
   },
   content: {
     maxWidth: "720px",
