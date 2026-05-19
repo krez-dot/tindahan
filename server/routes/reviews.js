@@ -82,4 +82,31 @@ router.get("/user/mine", auth, async (req, res) => {
     }
 });
 
+// POST /api/reviews/:id/reply — owner replies to a review
+router.post("/:id/reply", auth, async (req, res) => {
+    const { reply } = req.body;
+    try {
+        const review = await pool.query(
+            `SELECT r.*, b.owner_id FROM reviews r
+       JOIN businesses b ON r.business_id = b.id
+       WHERE r.id = $1`,
+            [req.params.id]
+        );
+        if (review.rows.length === 0) {
+            return res.status(404).json({ error: "Review not found" });
+        }
+        if (review.rows[0].owner_id !== req.user.id) {
+            return res.status(403).json({ error: "Not authorized" });
+        }
+        const result = await pool.query(
+            `UPDATE reviews SET owner_reply = $1, replied_at = NOW()
+       WHERE id = $2 RETURNING *`,
+            [reply, req.params.id]
+        );
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: "Server error" });
+    }
+});
 module.exports = router;

@@ -2,6 +2,62 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import API from "../api/axios";
 
+// ReplyForm component — defined OUTSIDE BusinessPage
+function ReplyForm({ reviewId, onReplied }) {
+  const [reply, setReply] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    await API.post(`/reviews/${reviewId}/reply`, { reply });
+    setReply("");
+    setSubmitting(false);
+    onReplied();
+  };
+
+  return (
+    <form onSubmit={submit} style={{ marginTop: "12px" }}>
+      <textarea
+        style={{
+          width: "100%",
+          padding: "10px 14px",
+          borderRadius: "10px",
+          border: "1.5px solid #e8e0d8",
+          fontSize: "14px",
+          fontFamily: "Poppins, sans-serif",
+          resize: "vertical",
+          boxSizing: "border-box",
+          backgroundColor: "#fdfaf7",
+        }}
+        placeholder="Reply to this review..."
+        value={reply}
+        onChange={(e) => setReply(e.target.value)}
+        rows={2}
+        required
+      />
+      <button
+        type="submit"
+        disabled={submitting}
+        style={{
+          marginTop: "8px",
+          padding: "8px 20px",
+          backgroundColor: "#e8601c",
+          color: "white",
+          border: "none",
+          borderRadius: "8px",
+          fontSize: "13px",
+          fontWeight: "600",
+          cursor: "pointer",
+          fontFamily: "Poppins, sans-serif",
+        }}
+      >
+        {submitting ? "Replying..." : "Reply →"}
+      </button>
+    </form>
+  );
+}
+
 function BusinessPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -87,7 +143,6 @@ function BusinessPage() {
 
   return (
     <div style={styles.page}>
-      {/* Hero banner */}
       <div style={styles.banner}>
         <div style={styles.bannerInner}>
           <button style={styles.backLink} onClick={() => navigate("/")}>
@@ -110,7 +165,6 @@ function BusinessPage() {
       </div>
 
       <div style={styles.content}>
-        {/* About */}
         <div style={styles.card}>
           <h2 style={styles.cardTitle}>About this business</h2>
           <p style={styles.description}>
@@ -118,7 +172,6 @@ function BusinessPage() {
           </p>
         </div>
 
-        {/* Announcements */}
         {announcements.length > 0 && (
           <div style={styles.card}>
             <h2 style={styles.cardTitle}>📢 Announcements</h2>
@@ -142,7 +195,6 @@ function BusinessPage() {
           </div>
         )}
 
-        {/* Photos */}
         {photos.length > 0 && (
           <div style={styles.card}>
             <h2 style={styles.cardTitle}>📸 Photos</h2>
@@ -170,7 +222,6 @@ function BusinessPage() {
           </div>
         )}
 
-        {/* Details */}
         <div style={styles.card}>
           <h2 style={styles.cardTitle}>Business details</h2>
           <div style={styles.detailsList}>
@@ -215,7 +266,6 @@ function BusinessPage() {
           </div>
         </div>
 
-        {/* Contact */}
         <div style={styles.card}>
           <h2 style={styles.cardTitle}>Contact this business</h2>
           {business.phone ? (
@@ -237,7 +287,6 @@ function BusinessPage() {
           )}
         </div>
 
-        {/* Reviews list */}
         <div style={styles.card}>
           <h2 style={styles.cardTitle}>
             ⭐ Reviews {reviews.length > 0 && `(${reviews.length})`}
@@ -268,13 +317,25 @@ function BusinessPage() {
                       day: "numeric",
                     })}
                   </p>
+
+                  {/* Show existing reply */}
+                  {r.owner_reply && (
+                    <div style={styles.replyBox}>
+                      <p style={styles.replyLabel}>🏪 Owner replied:</p>
+                      <p style={styles.replyBody}>{r.owner_reply}</p>
+                    </div>
+                  )}
+
+                  {/* Reply form for owner */}
+                  {user?.role === "owner" && !r.owner_reply && (
+                    <ReplyForm reviewId={r.id} onReplied={fetchReviews} />
+                  )}
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* Write a review */}
         {user && user.role !== "owner" && (
           <div style={styles.card}>
             <h2 style={styles.cardTitle}>✍️ Write a review</h2>
@@ -510,6 +571,20 @@ const styles = {
     marginBottom: "8px",
   },
   reviewDate: { fontSize: "12px", color: "#aaa" },
+  replyBox: {
+    marginTop: "12px",
+    backgroundColor: "#fff3ec",
+    borderRadius: "10px",
+    padding: "12px 16px",
+    borderLeft: "3px solid #e8601c",
+  },
+  replyLabel: {
+    fontSize: "12px",
+    fontWeight: "700",
+    color: "#e8601c",
+    marginBottom: "4px",
+  },
+  replyBody: { fontSize: "14px", color: "#555", lineHeight: "1.6" },
   success: {
     backgroundColor: "#eaf3de",
     color: "#3b6d11",
