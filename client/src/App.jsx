@@ -6,6 +6,9 @@ import Register from "./pages/Register";
 import BusinessPage from "./pages/BusinessPage";
 import AddBusiness from "./pages/AddBusiness";
 import Profile from "./pages/Profile";
+import OwnerDashboard from "./pages/OwnerDashboard";
+import Announcements from "./pages/Announcements";
+
 
 function App() {
   return (
@@ -18,7 +21,8 @@ function App() {
         <Route path="/business/:id" element={<BusinessPage />} />
         <Route path="/add-business" element={<AddBusiness />} />
         <Route path="/profile" element={<Profile />} />
-        
+        <Route path="/dashboard" element={<OwnerDashboard />} />
+        <Route path="/announcements" element={<Announcements />} />
       </Routes>
     </BrowserRouter>
   );

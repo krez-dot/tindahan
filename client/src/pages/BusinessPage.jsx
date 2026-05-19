@@ -10,6 +10,7 @@ function BusinessPage() {
   const [reviews, setReviews] = useState([]);
   const [photos, setPhotos] = useState([]);
   const [saved, setSaved] = useState(false);
+  const [announcements, setAnnouncements] = useState([]);
   const [reviewForm, setReviewForm] = useState({ rating: 5, body: "" });
   const [reviewError, setReviewError] = useState("");
   const [reviewSuccess, setReviewSuccess] = useState(false);
@@ -38,6 +39,10 @@ function BusinessPage() {
         .then((res) => setSaved(res.data.saved))
         .catch(() => {});
     }
+  }, [id]);
+
+  useEffect(() => {
+    API.get(`/announcements/${id}`).then((res) => setAnnouncements(res.data));
   }, [id]);
 
   const fetchReviews = () => {
@@ -112,6 +117,30 @@ function BusinessPage() {
             {business.description || "No description provided."}
           </p>
         </div>
+
+        {/* Announcements */}
+        {announcements.length > 0 && (
+          <div style={styles.card}>
+            <h2 style={styles.cardTitle}>📢 Announcements</h2>
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "12px" }}
+            >
+              {announcements.map((a) => (
+                <div key={a.id} style={styles.announcementCard}>
+                  <p style={styles.announcementTitle}>{a.title}</p>
+                  {a.body && <p style={styles.announcementBody}>{a.body}</p>}
+                  <p style={styles.announcementDate}>
+                    {new Date(a.created_at).toLocaleDateString("en-PH", {
+                      month: "long",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Photos */}
         {photos.length > 0 && (
@@ -401,6 +430,25 @@ const styles = {
     marginBottom: "16px",
   },
   description: { fontSize: "15px", color: "#555", lineHeight: "1.8" },
+  announcementCard: {
+    backgroundColor: "#fff3ec",
+    borderRadius: "12px",
+    padding: "16px",
+    border: "1px solid #fad4bc",
+  },
+  announcementTitle: {
+    fontWeight: "700",
+    fontSize: "15px",
+    color: DARK,
+    marginBottom: "6px",
+  },
+  announcementBody: {
+    fontSize: "14px",
+    color: "#555",
+    lineHeight: "1.6",
+    marginBottom: "6px",
+  },
+  announcementDate: { fontSize: "12px", color: "#aaa" },
   detailsList: { display: "flex", flexDirection: "column", gap: "16px" },
   detailRow: { display: "flex", gap: "16px", alignItems: "flex-start" },
   detailIcon: { fontSize: "22px", marginTop: "2px" },

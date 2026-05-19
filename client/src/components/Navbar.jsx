@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 function Navbar() {
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
+  const user = JSON.parse(localStorage.getItem("user") || "null");
 
   const logout = () => {
     localStorage.removeItem("token");
@@ -16,11 +17,19 @@ function Navbar() {
         🛖 Tindahan
       </Link>
       <div style={styles.links}>
+        <Link to="/" style={styles.link}>
+          Home
+        </Link>
+        <Link to="/announcements" style={styles.link}>
+          Announcements
+        </Link>
         {token ? (
           <>
-            <Link to="/" style={styles.link}>
-              Home
-            </Link>
+            {user?.role === "owner" && (
+              <Link to="/dashboard" style={styles.link}>
+                Dashboard
+              </Link>
+            )}
             <Link to="/profile" style={styles.link}>
               Profile
             </Link>
@@ -59,11 +68,7 @@ const styles = {
     fontSize: "22px",
     fontWeight: "800",
   },
-  links: {
-    display: "flex",
-    gap: "20px",
-    alignItems: "center",
-  },
+  links: { display: "flex", gap: "20px", alignItems: "center" },
   link: {
     color: "#2d2413",
     textDecoration: "none",
