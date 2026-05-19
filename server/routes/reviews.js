@@ -65,4 +65,21 @@ router.post("/:businessId", auth, async (req, res) => {
     }
 });
 
+// GET /api/reviews/user/mine
+router.get("/user/mine", auth, async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT r.*, b.name AS business_name
+       FROM reviews r
+       JOIN businesses b ON r.business_id = b.id
+       WHERE r.user_id = $1
+       ORDER BY r.created_at DESC`,
+            [req.user.id]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: "Server error" });
+    }
+});
+
 module.exports = router;

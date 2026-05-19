@@ -6,6 +6,7 @@ function Navbar() {
 
   const logout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("user");
     navigate("/login");
   };
 
@@ -19,6 +20,9 @@ function Navbar() {
           <>
             <Link to="/" style={styles.link}>
               Home
+            </Link>
+            <Link to="/profile" style={styles.link}>
+              Profile
             </Link>
             <button onClick={logout} style={styles.btn}>
               Logout

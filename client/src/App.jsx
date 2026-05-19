@@ -5,6 +5,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import BusinessPage from "./pages/BusinessPage";
 import AddBusiness from "./pages/AddBusiness";
+import Profile from "./pages/Profile";
 
 function App() {
   return (
@@ -16,6 +17,8 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/business/:id" element={<BusinessPage />} />
         <Route path="/add-business" element={<AddBusiness />} />
+        <Route path="/profile" element={<Profile />} />
+        
       </Routes>
     </BrowserRouter>
   );
