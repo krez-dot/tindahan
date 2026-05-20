@@ -7,53 +7,65 @@ import API from "../api/axios";
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconRetinaUrl:
+    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
   shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
 
-const CATEGORIES = ["All", "Food", "Retail", "Services", "Health", "Education", "Others"];
-const AI_URL = "http://localhost:5001";
+const CATEGORIES = [
+  "All",
+  "Food",
+  "Retail",
+  "Services",
+  "Health",
+  "Education",
+  "Others",
+];
 
 function Home() {
   const [businesses, setBusinesses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
-  const [aiResult, setAiResult] = useState(null);   // parsed AI response
+  const [aiResult, setAiResult] = useState(null); // parsed AI response
   const [aiLoading, setAiLoading] = useState(false);
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user") || "null");
 
   useEffect(() => {
     API.get("/businesses")
-      .then((res) => { setBusinesses(res.data); setLoading(false); })
+      .then((res) => {
+        setBusinesses(res.data);
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
   }, []);
 
-  // ── Debounced AI search ───────────────────────────────────────
+  // ── Debounced AI search via Node backend ─────────────────────
   const runAiSearch = useCallback(async (query) => {
     if (!query.trim()) {
       setAiResult(null);
       setActiveCategory("All");
+      API.get("/businesses")
+        .then((res) => setBusinesses(res.data))
+        .catch(() => {});
       return;
     }
     setAiLoading(true);
     try {
-      const res = await fetch(`${AI_URL}/search`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query }),
-      });
-      const data = await res.json();
-      setAiResult(data);
-
-      // Auto-switch category pill if AI detected exactly one category
-      if (data.detected_categories?.length === 1) {
-        setActiveCategory(data.detected_categories[0]);
+      const res = await API.get(
+        `/businesses/search/ai?q=${encodeURIComponent(query)}`,
+      );
+      const data = res.data; // { results: [...], ai_interpretation: {...} }
+      setAiResult(data.ai_interpretation);
+      if (data.ai_interpretation?.detected_categories?.length === 1) {
+        setActiveCategory(data.ai_interpretation.detected_categories[0]);
       }
+      // Use DB-filtered results if we got any, otherwise keep current list
+      if (data.results?.length > 0) setBusinesses(data.results);
     } catch {
-      setAiResult(null); // silently fall back to basic search
+      setAiResult(null);
     } finally {
       setAiLoading(false);
     }
@@ -61,43 +73,39 @@ function Home() {
 
   // Debounce: wait 400ms after user stops typing
   useEffect(() => {
+    if (!search.trim()) {
+      setAiResult(null);
+      setActiveCategory("All");
+      API.get("/businesses")
+        .then((res) => setBusinesses(res.data))
+        .catch(() => {});
+      return;
+    }
     const timer = setTimeout(() => runAiSearch(search), 400);
     return () => clearTimeout(timer);
-  }, [search, runAiSearch]);
+  }, [search]);
 
-  // ── Filtering logic ───────────────────────────────────────────
+  // ── Category pill filter on top of AI results ─────────────────
   const filtered = businesses.filter((b) => {
-    // Category filter
-    const matchCategory =
-      activeCategory === "All" ||
-      b.category?.toLowerCase() === activeCategory.toLowerCase();
-
-    if (!search.trim()) return matchCategory;
-
-    // If AI gave us search_terms, use those; otherwise fall back to raw search
-    const terms = aiResult?.search_terms?.length
-      ? aiResult.search_terms
-      : [search.toLowerCase()];
-
-    const haystack = [b.name, b.description, b.address, b.category]
-      .join(" ")
-      .toLowerCase();
-
-    const matchSearch = terms.some((term) => haystack.includes(term));
-
-    return matchCategory && matchSearch;
+    if (activeCategory === "All") return true;
+    return b.category?.toLowerCase() === activeCategory.toLowerCase();
   });
 
   // ── Render ────────────────────────────────────────────────────
   return (
     <div style={{ backgroundColor: "#fdf8f3", minHeight: "100vh" }}>
-
       {/* Hero */}
       <div style={styles.hero}>
         <div style={styles.heroInner}>
           <p style={styles.heroEyebrow}>🌺 Tarlac City, Philippines</p>
-          <h1 style={styles.heroTitle}>Find the best local<br />businesses near you</h1>
-          <p style={styles.heroSub}>Support your community. Discover hidden gems. Shop local! 🛖</p>
+          <h1 style={styles.heroTitle}>
+            Find the best local
+            <br />
+            businesses near you
+          </h1>
+          <p style={styles.heroSub}>
+            Support your community. Discover hidden gems. Shop local! 🛖
+          </p>
 
           <div style={styles.searchWrap}>
             <span style={styles.searchIcon}>{aiLoading ? "⏳" : "🔍"}</span>
@@ -109,7 +117,14 @@ function Home() {
               onChange={(e) => setSearch(e.target.value)}
             />
             {search && (
-              <button style={styles.clearBtn} onClick={() => { setSearch(""); setAiResult(null); setActiveCategory("All"); }}>
+              <button
+                style={styles.clearBtn}
+                onClick={() => {
+                  setSearch("");
+                  setAiResult(null);
+                  setActiveCategory("All");
+                }}
+              >
                 ✕
               </button>
             )}
@@ -125,34 +140,52 @@ function Home() {
                   <strong>{aiResult.detected_categories.join(", ")}</strong>
                 )}
                 {aiResult.location_hints?.length > 0 && (
-                  <> · 📍 <strong>{aiResult.location_hints.join(", ")}</strong></>
+                  <>
+                    {" "}
+                    · 📍 <strong>{aiResult.location_hints.join(", ")}</strong>
+                  </>
                 )}
                 {aiResult.price_hints && (
-                  <> · {aiResult.price_hints === "budget" ? "💰 budget-friendly" : "💎 premium"}</>
+                  <>
+                    {" "}
+                    ·{" "}
+                    {aiResult.price_hints === "budget"
+                      ? "💰 budget-friendly"
+                      : "💎 premium"}
+                  </>
                 )}
-                {!aiResult.detected_categories?.length && !aiResult.location_hints?.length && !aiResult.price_hints && (
-                  <span>searching for "<strong>{aiResult.suggested_search || search}</strong>"</span>
-                )}
+                {!aiResult.detected_categories?.length &&
+                  !aiResult.location_hints?.length &&
+                  !aiResult.price_hints && (
+                    <span>
+                      searching for "
+                      <strong>{aiResult.suggested_search || search}</strong>"
+                    </span>
+                  )}
               </span>
             </div>
           )}
 
           {user?.role === "owner" && (
-            <button style={styles.ctaBtn} onClick={() => navigate("/add-business")}>
+            <button
+              style={styles.ctaBtn}
+              onClick={() => navigate("/add-business")}
+            >
               + List your business
             </button>
           )}
           {!user && (
             <div style={styles.ctaRow}>
               <span style={styles.ctaText}>Own a business?</span>
-              <Link to="/register" style={styles.ctaBtn}>List it for free →</Link>
+              <Link to="/register" style={styles.ctaBtn}>
+                List it for free →
+              </Link>
             </div>
           )}
         </div>
       </div>
 
       <div style={styles.content}>
-
         {/* Category pills */}
         <div style={styles.pills}>
           {CATEGORIES.map((cat) => (
@@ -176,16 +209,22 @@ function Home() {
         {/* Map */}
         <div style={styles.mapWrap}>
           <MapContainer
-            center={[15.4755, 120.5960]}
+            center={[15.4755, 120.596]}
             zoom={13}
             style={{ height: "380px", width: "100%", borderRadius: "16px" }}
           >
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-            {businesses.filter(b => b.lat && b.lng).map((b) => (
-              <Marker key={b.id} position={[b.lat, b.lng]}>
-                <Popup><strong>{b.name}</strong><br />{b.address}</Popup>
-              </Marker>
-            ))}
+            {businesses
+              .filter((b) => b.lat && b.lng)
+              .map((b) => (
+                <Marker key={b.id} position={[b.lat, b.lng]}>
+                  <Popup>
+                    <strong>{b.name}</strong>
+                    <br />
+                    {b.address}
+                  </Popup>
+                </Marker>
+              ))}
           </MapContainer>
         </div>
 
@@ -198,7 +237,9 @@ function Home() {
         </div>
 
         {loading ? (
-          <p style={{ color: "#888", padding: "24px 0" }}>Loading businesses...</p>
+          <p style={{ color: "#888", padding: "24px 0" }}>
+            Loading businesses...
+          </p>
         ) : filtered.length === 0 ? (
           <div style={styles.empty}>
             <p style={{ fontSize: "40px" }}>🔍</p>
@@ -210,7 +251,9 @@ function Home() {
               <Link to={`/business/${b.id}`} key={b.id} style={styles.card}>
                 <div style={styles.cardTop}>
                   <span style={styles.cardEmoji}>🛖</span>
-                  {b.is_verified && <span style={styles.verified}>✅ Verified</span>}
+                  {b.is_verified && (
+                    <span style={styles.verified}>✅ Verified</span>
+                  )}
                 </div>
                 <h3 style={styles.cardTitle}>{b.name}</h3>
                 <p style={styles.cardDesc}>{b.description}</p>
@@ -233,14 +276,33 @@ const DARK = "#2d2413";
 
 const styles = {
   hero: {
-    background: "linear-gradient(135deg, #3d2c1e 0%, #7a4a2a 60%, #e8601c 100%)",
+    background:
+      "linear-gradient(135deg, #3d2c1e 0%, #7a4a2a 60%, #e8601c 100%)",
     padding: "64px 24px 80px",
     color: "white",
   },
   heroInner: { maxWidth: "700px", margin: "0 auto", textAlign: "center" },
-  heroTitle: { fontSize: "42px", fontWeight: "800", lineHeight: "1.2", marginBottom: "16px", color: "white" },
-  heroEyebrow: { fontSize: "14px", letterSpacing: "2px", opacity: 0.8, marginBottom: "12px", textTransform: "uppercase", color: "white" },
-  heroSub: { fontSize: "18px", opacity: 0.85, marginBottom: "32px", color: "white" },
+  heroTitle: {
+    fontSize: "42px",
+    fontWeight: "800",
+    lineHeight: "1.2",
+    marginBottom: "16px",
+    color: "white",
+  },
+  heroEyebrow: {
+    fontSize: "14px",
+    letterSpacing: "2px",
+    opacity: 0.8,
+    marginBottom: "12px",
+    textTransform: "uppercase",
+    color: "white",
+  },
+  heroSub: {
+    fontSize: "18px",
+    opacity: 0.85,
+    marginBottom: "32px",
+    color: "white",
+  },
   searchWrap: {
     display: "flex",
     alignItems: "center",
@@ -282,7 +344,12 @@ const styles = {
     marginBottom: "20px",
   },
   aiBadgeIcon: { fontSize: "16px" },
-  ctaRow: { display: "flex", alignItems: "center", justifyContent: "center", gap: "12px" },
+  ctaRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "12px",
+  },
   ctaText: { opacity: 0.85, fontSize: "15px" },
   ctaBtn: {
     backgroundColor: "white",
@@ -297,7 +364,12 @@ const styles = {
     boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
   },
   content: { maxWidth: "1100px", margin: "0 auto", padding: "32px 24px" },
-  pills: { display: "flex", gap: "10px", flexWrap: "wrap", marginBottom: "28px" },
+  pills: {
+    display: "flex",
+    gap: "10px",
+    flexWrap: "wrap",
+    marginBottom: "28px",
+  },
   pill: {
     padding: "8px 18px",
     borderRadius: "50px",
@@ -318,7 +390,12 @@ const styles = {
     color: ORANGE,
     fontWeight: "700",
   },
-  mapWrap: { marginBottom: "36px", boxShadow: "0 4px 24px rgba(0,0,0,0.10)", borderRadius: "16px", overflow: "hidden" },
+  mapWrap: {
+    marginBottom: "36px",
+    boxShadow: "0 4px 24px rgba(0,0,0,0.10)",
+    borderRadius: "16px",
+    overflow: "hidden",
+  },
   sectionHeader: { marginBottom: "20px" },
   sectionTitle: { fontSize: "22px", fontWeight: "700", color: DARK },
   count: { fontWeight: "400", color: "#999", fontSize: "18px" },
@@ -340,13 +417,28 @@ const styles = {
     flexDirection: "column",
     gap: "8px",
   },
-  cardTop: { display: "flex", justifyContent: "space-between", alignItems: "center" },
+  cardTop: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   cardEmoji: { fontSize: "28px" },
-  verified: { fontSize: "12px", backgroundColor: "#eaf3de", color: "#3b6d11", padding: "3px 10px", borderRadius: "20px" },
+  verified: {
+    fontSize: "12px",
+    backgroundColor: "#eaf3de",
+    color: "#3b6d11",
+    padding: "3px 10px",
+    borderRadius: "20px",
+  },
   cardTitle: { fontSize: "18px", fontWeight: "700", color: DARK, margin: 0 },
   cardDesc: { fontSize: "14px", color: "#666", margin: 0, lineHeight: "1.5" },
   cardAddr: { fontSize: "13px", color: "#999", margin: 0 },
-  cardFooter: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "8px" },
+  cardFooter: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: "8px",
+  },
   ownerTag: { fontSize: "12px", color: "#aaa" },
   viewMore: { fontSize: "13px", color: ORANGE, fontWeight: "600" },
 };
