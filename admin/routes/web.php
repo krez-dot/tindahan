@@ -9,6 +9,17 @@ Route::get('/', function () {
     return redirect('/dashboard');
 });
 
+// TEMPORARY - remove after use
+Route::get('/setup-admin', function () {
+    \Illuminate\Support\Facades\DB::table('users')
+        ->where('email', 'joseph@tindahan.com')
+        ->update([
+            'password_hash' => \Illuminate\Support\Facades\Hash::make('password123'),
+            'role' => 'admin'
+        ]);
+    return 'Admin setup done!';
+});
+
 // Auth routes
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
