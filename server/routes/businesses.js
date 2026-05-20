@@ -205,5 +205,51 @@ router.get("/saved/all", auth, async (req, res) => {
         res.status(500).json({ error: "Server error" });
     }
 });
+// GET /api/businesses/search/ai?q=query — AI powered search
+router.get("/search/ai", async (req, res) => {
+    const { q } = req.query;
+    if (!q) return res.status(400).json({ error: "No query provided" });
 
+    try {
+        // Get AI to parse the query
+        const aiRes = await fetch("http://localhost:5001/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query: q }),
+        });
+        const aiData = await aiRes.json();
+
+        // Build SQL query based on AI results
+        let query = `
+      SELECT b.*, u.name AS owner_name
+      FROM businesses b
+      JOIN users u ON b.owner_id = u.id
+      WHERE 1=1
+    `;
+        const params = [];
+        let paramCount = 1;
+
+        // Search by terms
+        if (aiData.search_terms && aiData.search_terms.length > 0) {
+            const searchConditions = aiData.search_terms.map((term) => {
+                params.push(`%${term}%`);
+                const idx = paramCount++;
+                return `(b.name ILIKE $${idx} OR b.description ILIKE $${idx} OR b.address ILIKE $${idx})`;
+            });
+            query += ` AND (${searchConditions.join(" OR ")})`;
+        }
+
+        query += ` ORDER BY b.created_at DESC`;
+
+        const result = await pool.query(query, params);
+
+        res.json({
+            results: result.rows,
+            ai_interpretation: aiData,
+        });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: "Search failed" });
+    }
+});
 module.exports = router;

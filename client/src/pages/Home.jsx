@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -13,12 +13,15 @@ L.Icon.Default.mergeOptions({
 });
 
 const CATEGORIES = ["All", "Food", "Retail", "Services", "Health", "Education", "Others"];
+const AI_URL = "http://localhost:5001";
 
 function Home() {
   const [businesses, setBusinesses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
+  const [aiResult, setAiResult] = useState(null);   // parsed AI response
+  const [aiLoading, setAiLoading] = useState(false);
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user") || "null");
 
@@ -28,14 +31,64 @@ function Home() {
       .catch(() => setLoading(false));
   }, []);
 
+  // ── Debounced AI search ───────────────────────────────────────
+  const runAiSearch = useCallback(async (query) => {
+    if (!query.trim()) {
+      setAiResult(null);
+      setActiveCategory("All");
+      return;
+    }
+    setAiLoading(true);
+    try {
+      const res = await fetch(`${AI_URL}/search`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      });
+      const data = await res.json();
+      setAiResult(data);
+
+      // Auto-switch category pill if AI detected exactly one category
+      if (data.detected_categories?.length === 1) {
+        setActiveCategory(data.detected_categories[0]);
+      }
+    } catch {
+      setAiResult(null); // silently fall back to basic search
+    } finally {
+      setAiLoading(false);
+    }
+  }, []);
+
+  // Debounce: wait 400ms after user stops typing
+  useEffect(() => {
+    const timer = setTimeout(() => runAiSearch(search), 400);
+    return () => clearTimeout(timer);
+  }, [search, runAiSearch]);
+
+  // ── Filtering logic ───────────────────────────────────────────
   const filtered = businesses.filter((b) => {
-    const matchSearch =
-      b.name.toLowerCase().includes(search.toLowerCase()) ||
-      b.description?.toLowerCase().includes(search.toLowerCase()) ||
-      b.address?.toLowerCase().includes(search.toLowerCase());
-    return matchSearch;
+    // Category filter
+    const matchCategory =
+      activeCategory === "All" ||
+      b.category?.toLowerCase() === activeCategory.toLowerCase();
+
+    if (!search.trim()) return matchCategory;
+
+    // If AI gave us search_terms, use those; otherwise fall back to raw search
+    const terms = aiResult?.search_terms?.length
+      ? aiResult.search_terms
+      : [search.toLowerCase()];
+
+    const haystack = [b.name, b.description, b.address, b.category]
+      .join(" ")
+      .toLowerCase();
+
+    const matchSearch = terms.some((term) => haystack.includes(term));
+
+    return matchCategory && matchSearch;
   });
 
+  // ── Render ────────────────────────────────────────────────────
   return (
     <div style={{ backgroundColor: "#fdf8f3", minHeight: "100vh" }}>
 
@@ -47,15 +100,42 @@ function Home() {
           <p style={styles.heroSub}>Support your community. Discover hidden gems. Shop local! 🛖</p>
 
           <div style={styles.searchWrap}>
-            <span style={styles.searchIcon}>🔍</span>
+            <span style={styles.searchIcon}>{aiLoading ? "⏳" : "🔍"}</span>
             <input
               style={styles.searchInput}
               type="text"
-              placeholder="Search karinderya, bakery, sari-sari store..."
+              placeholder="Try: 'cheap breakfast near central' or 'salon sa tibag'..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
+            {search && (
+              <button style={styles.clearBtn} onClick={() => { setSearch(""); setAiResult(null); setActiveCategory("All"); }}>
+                ✕
+              </button>
+            )}
           </div>
+
+          {/* AI understanding badge */}
+          {aiResult && search && (
+            <div style={styles.aiBadge}>
+              <span style={styles.aiBadgeIcon}>🤖</span>
+              <span>
+                AI understood:{" "}
+                {aiResult.detected_categories?.length > 0 && (
+                  <strong>{aiResult.detected_categories.join(", ")}</strong>
+                )}
+                {aiResult.location_hints?.length > 0 && (
+                  <> · 📍 <strong>{aiResult.location_hints.join(", ")}</strong></>
+                )}
+                {aiResult.price_hints && (
+                  <> · {aiResult.price_hints === "budget" ? "💰 budget-friendly" : "💎 premium"}</>
+                )}
+                {!aiResult.detected_categories?.length && !aiResult.location_hints?.length && !aiResult.price_hints && (
+                  <span>searching for "<strong>{aiResult.suggested_search || search}</strong>"</span>
+                )}
+              </span>
+            </div>
+          )}
 
           {user?.role === "owner" && (
             <button style={styles.ctaBtn} onClick={() => navigate("/add-business")}>
@@ -149,7 +229,6 @@ function Home() {
 }
 
 const ORANGE = "#e8601c";
-const ORANGE_LIGHT = "#fff3ec";
 const DARK = "#2d2413";
 
 const styles = {
@@ -169,7 +248,7 @@ const styles = {
     borderRadius: "50px",
     padding: "6px 20px",
     boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
-    marginBottom: "24px",
+    marginBottom: "16px",
   },
   searchIcon: { fontSize: "18px", marginRight: "10px" },
   searchInput: {
@@ -181,6 +260,28 @@ const styles = {
     backgroundColor: "transparent",
     color: DARK,
   },
+  clearBtn: {
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    fontSize: "14px",
+    color: "#aaa",
+    padding: "4px 8px",
+  },
+  aiBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "8px",
+    backgroundColor: "rgba(255,255,255,0.15)",
+    backdropFilter: "blur(8px)",
+    border: "1px solid rgba(255,255,255,0.3)",
+    borderRadius: "50px",
+    padding: "8px 20px",
+    fontSize: "13px",
+    color: "white",
+    marginBottom: "20px",
+  },
+  aiBadgeIcon: { fontSize: "16px" },
   ctaRow: { display: "flex", alignItems: "center", justifyContent: "center", gap: "12px" },
   ctaText: { opacity: 0.85, fontSize: "15px" },
   ctaBtn: {
@@ -210,11 +311,11 @@ const styles = {
   pillActive: {
     padding: "8px 18px",
     borderRadius: "50px",
-    border: "1.5px solid #e8601c",
+    border: `1.5px solid ${ORANGE}`,
     backgroundColor: "#fff3ec",
     cursor: "pointer",
     fontSize: "14px",
-    color: "#e8601c",
+    color: ORANGE,
     fontWeight: "700",
   },
   mapWrap: { marginBottom: "36px", boxShadow: "0 4px 24px rgba(0,0,0,0.10)", borderRadius: "16px", overflow: "hidden" },
@@ -247,7 +348,7 @@ const styles = {
   cardAddr: { fontSize: "13px", color: "#999", margin: 0 },
   cardFooter: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "8px" },
   ownerTag: { fontSize: "12px", color: "#aaa" },
-  viewMore: { fontSize: "13px", color: "#e8601c", fontWeight: "600" },
+  viewMore: { fontSize: "13px", color: ORANGE, fontWeight: "600" },
 };
 
 export default Home;
