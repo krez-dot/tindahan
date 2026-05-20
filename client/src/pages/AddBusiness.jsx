@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -100,7 +100,15 @@ const BARANGAYS = [
   "Wakas",
 ];
 
-// Map click handler component
+const CATEGORY_ICONS = {
+  Food: "🍚",
+  Retail: "🛍️",
+  Services: "🔧",
+  Health: "💊",
+  Education: "📚",
+  Others: "✨",
+};
+
 function LocationPicker({ onSelect }) {
   useMapEvents({
     click(e) {
@@ -120,11 +128,20 @@ function AddBusiness() {
     lat: "",
     lng: "",
     phone: "",
+    category_id: "",
   });
+  const [categories, setCategories] = useState([]);
   const [photos, setPhotos] = useState([]);
   const [markerPos, setMarkerPos] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Fetch categories from backend
+  useEffect(() => {
+    API.get("/categories")
+      .then((res) => setCategories(res.data))
+      .catch(() => {});
+  }, []);
 
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -134,10 +151,7 @@ function AddBusiness() {
     setForm((prev) => ({ ...prev, lat: lat.toFixed(6), lng: lng.toFixed(6) }));
   };
 
-  const handlePhotos = (e) => {
-    const files = Array.from(e.target.files);
-    setPhotos(files);
-  };
+  const handlePhotos = (e) => setPhotos(Array.from(e.target.files));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -153,9 +167,9 @@ function AddBusiness() {
         address: fullAddress,
         lat: parseFloat(form.lat) || null,
         lng: parseFloat(form.lng) || null,
+        category_id: form.category_id || null,
       });
 
-      // Upload all photos
       for (const photo of photos) {
         const formData = new FormData();
         formData.append("photo", photo);
@@ -210,6 +224,7 @@ function AddBusiness() {
                 />
               </div>
             </div>
+
             <label style={styles.label}>Description *</label>
             <textarea
               style={styles.textarea}
@@ -220,6 +235,35 @@ function AddBusiness() {
               required
               rows={4}
             />
+
+            {/* ── Category picker ── */}
+            <label style={styles.label}>Category *</label>
+            <div style={styles.categoryGrid}>
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  style={
+                    form.category_id === cat.id
+                      ? styles.catBtnActive
+                      : styles.catBtn
+                  }
+                  onClick={() => setForm({ ...form, category_id: cat.id })}
+                >
+                  <span style={{ fontSize: "22px" }}>
+                    {CATEGORY_ICONS[cat.name] || "🏪"}
+                  </span>
+                  <span style={{ fontSize: "13px", fontWeight: "600" }}>
+                    {cat.name}
+                  </span>
+                </button>
+              ))}
+            </div>
+            {!form.category_id && (
+              <p style={styles.hint}>
+                👆 Pick the category that best fits your business
+              </p>
+            )}
           </div>
 
           {/* Location */}
@@ -431,6 +475,42 @@ const styles = {
     color: "#2d2413",
     backgroundColor: "#fdfaf7",
     resize: "vertical",
+  },
+  categoryGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(3, 1fr)",
+    gap: "10px",
+    marginTop: "8px",
+  },
+  catBtn: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "6px",
+    padding: "14px 8px",
+    borderRadius: "14px",
+    border: "1.5px solid #e8e0d8",
+    backgroundColor: "#fdfaf7",
+    cursor: "pointer",
+    fontFamily: "Poppins, sans-serif",
+    color: "#555",
+    transition: "all 0.15s",
+  },
+  catBtnActive: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "6px",
+    padding: "14px 8px",
+    borderRadius: "14px",
+    border: `2px solid ${ORANGE}`,
+    backgroundColor: "#fff3ec",
+    cursor: "pointer",
+    fontFamily: "Poppins, sans-serif",
+    color: ORANGE,
+    transition: "all 0.15s",
   },
   fileInput: {
     display: "block",
