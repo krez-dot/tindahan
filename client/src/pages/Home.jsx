@@ -71,6 +71,9 @@ function Home() {
   const [aiLoading, setAiLoading] = useState(false);
   const [nearMe, setNearMe] = useState(null);
   const [locating, setLocating] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const navigate = useNavigate();
 
   const handleNearMe = () => {
@@ -91,21 +94,36 @@ function Home() {
   const user = JSON.parse(localStorage.getItem("user") || "null");
 
   useEffect(() => {
-    API.get("/businesses")
+    API.get("/businesses?page=1&limit=12")
       .then((res) => {
-        setBusinesses(res.data);
+        setBusinesses(res.data.businesses);
+        setHasMore(res.data.hasMore);
         setLoading(false);
       })
       .catch(() => setLoading(false));
   }, []);
+
+  const loadMore = () => {
+    const nextPage = page + 1;
+    setLoadingMore(true);
+    API.get(`/businesses?page=${nextPage}&limit=12`)
+      .then((res) => {
+        setBusinesses((prev) => [...prev, ...res.data.businesses]);
+        setHasMore(res.data.hasMore);
+        setPage(nextPage);
+        setLoadingMore(false);
+      })
+      .catch(() => setLoadingMore(false));
+  };
 
   // ── Debounced AI search via Node backend ─────────────────────
   const runAiSearch = useCallback(async (query) => {
     if (!query.trim()) {
       setAiResult(null);
       setActiveCategory("All");
-      API.get("/businesses")
-        .then((res) => setBusinesses(res.data))
+      setPage(1);
+      API.get("/businesses?page=1&limit=12")
+        .then((res) => { setBusinesses(res.data.businesses); setHasMore(res.data.hasMore); })
         .catch(() => {});
       return;
     }
@@ -133,8 +151,9 @@ function Home() {
     if (!search.trim()) {
       setAiResult(null);
       setActiveCategory("All");
-      API.get("/businesses")
-        .then((res) => setBusinesses(res.data))
+      setPage(1);
+      API.get("/businesses?page=1&limit=12")
+        .then((res) => { setBusinesses(res.data.businesses); setHasMore(res.data.hasMore); })
         .catch(() => {});
       return;
     }
@@ -402,6 +421,31 @@ function Home() {
                 </div>
               </Link>
             ))}
+          </div>
+        )}
+
+        {/* Load more */}
+        {!aiResult && hasMore && (
+          <div style={{ textAlign: "center", padding: "8px 0 32px" }}>
+            <button
+              onClick={loadMore}
+              disabled={loadingMore}
+              style={{
+                padding: "13px 40px",
+                backgroundColor: loadingMore ? "#ccc" : "white",
+                color: loadingMore ? "white" : dark ? "#f0e8df" : "#2d2413",
+                border: dark ? "1.5px solid #4a3828" : "1.5px solid #e8e0d8",
+                borderRadius: "50px",
+                fontSize: "15px",
+                fontWeight: "600",
+                cursor: loadingMore ? "not-allowed" : "pointer",
+                fontFamily: "Poppins, sans-serif",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                backgroundColor: dark ? "#2d2413" : "white",
+              }}
+            >
+              {loadingMore ? "Loading..." : "Load more businesses"}
+            </button>
           </div>
         )}
       </main>

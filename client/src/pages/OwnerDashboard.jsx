@@ -24,19 +24,24 @@ function OwnerDashboard() {
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  const [photos, setPhotos] = useState([]);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoSuccess, setPhotoSuccess] = useState(false);
+
   useEffect(() => {
     if (!user || user.role !== "owner") return navigate("/");
     fetchBusinesses();
   }, []);
 
   const fetchBusinesses = () => {
-    API.get("/businesses")
+    API.get("/businesses?limit=100")
       .then((res) => {
-        const mine = res.data.filter((b) => b.owner_id === user.id);
+        const mine = res.data.businesses.filter((b) => b.owner_id === user.id);
         setBusinesses(mine);
         if (mine.length > 0) {
           setSelectedBusiness(mine[0]);
           fetchAnnouncements(mine[0].id);
+          fetchPhotos(mine[0].id);
         }
         setLoading(false);
       })
@@ -47,11 +52,42 @@ function OwnerDashboard() {
     API.get(`/announcements/${businessId}`).then((res) => setAnnouncements(res.data));
   };
 
+  const fetchPhotos = (businessId) => {
+    API.get(`/upload/${businessId}`).then((res) => setPhotos(res.data));
+  };
+
   const handleSelectBusiness = (b) => {
     setSelectedBusiness(b);
     setEditMode(false);
     setDeleteConfirm(false);
     fetchAnnouncements(b.id);
+    fetchPhotos(b.id);
+  };
+
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploadingPhoto(true);
+    setPhotoSuccess(false);
+    const formData = new FormData();
+    formData.append("photo", file);
+    try {
+      await API.post(`/upload/${selectedBusiness.id}`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      fetchPhotos(selectedBusiness.id);
+      setPhotoSuccess(true);
+      setTimeout(() => setPhotoSuccess(false), 3000);
+    } catch {
+      setError("Failed to upload photo");
+    }
+    setUploadingPhoto(false);
+    e.target.value = "";
+  };
+
+  const handleDeletePhoto = async (photoId) => {
+    await API.delete(`/upload/${photoId}`);
+    fetchPhotos(selectedBusiness.id);
   };
 
   const handlePost = async (e) => {
@@ -242,6 +278,38 @@ function OwnerDashboard() {
                       {deleting ? "Deleting..." : "🗑️ Yes, delete it"}
                     </button>
                   </div>
+                </div>
+              )}
+            </div>
+
+            <div style={s.card}>
+              <h2 style={s.cardTitle}>📸 Photos</h2>
+              <p style={s.hint}>First photo is used as the cover on your listing.</p>
+              {photoSuccess && <div style={s.success}>✅ Photo uploaded!</div>}
+              <label style={{
+                display: "block", marginTop: "12px", padding: "12px 16px",
+                borderRadius: "12px", border: `1.5px dashed ${dark ? "#5a4030" : "#e8e0d8"}`,
+                backgroundColor: dark ? "#3d2c1e" : "#fafaf8",
+                cursor: "pointer", fontSize: "14px",
+                color: uploadingPhoto ? (dark ? "#8a7a6a" : "#aaa") : (dark ? "#c8bfb4" : "#555"),
+                textAlign: "center",
+              }}>
+                {uploadingPhoto ? "Uploading..." : "📁 Click to upload a photo"}
+                <input type="file" accept="image/*" onChange={handlePhotoUpload} style={{ display: "none" }} disabled={uploadingPhoto} />
+              </label>
+              {photos.length > 0 && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: "8px", marginTop: "16px" }}>
+                  {photos.map((p, i) => (
+                    <div key={p.id} style={{ position: "relative" }}>
+                      <img src={p.url} alt={`photo ${i + 1}`} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: "10px", display: "block" }} />
+                      {i === 0 && <span style={{ position: "absolute", top: "4px", left: "4px", backgroundColor: ORANGE, color: "white", fontSize: "10px", fontWeight: "700", padding: "2px 6px", borderRadius: "6px" }}>Cover</span>}
+                      <button
+                        onClick={() => handleDeletePhoto(p.id)}
+                        style={{ position: "absolute", top: "4px", right: "4px", background: "rgba(0,0,0,0.6)", border: "none", color: "white", borderRadius: "50%", width: "22px", height: "22px", cursor: "pointer", fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center" }}
+                        aria-label="Delete photo"
+                      >✕</button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

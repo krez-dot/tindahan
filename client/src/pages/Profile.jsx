@@ -11,6 +11,11 @@ function Profile() {
   const [saved, setSaved] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [editMode, setEditMode] = useState(false);
+  const [editForm, setEditForm] = useState({ name: "", currentPassword: "", newPassword: "" });
+  const [editError, setEditError] = useState("");
+  const [editSuccess, setEditSuccess] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
 
   useEffect(() => {
     const handler = () => setIsMobile(window.innerWidth <= 640);
@@ -37,6 +42,30 @@ function Profile() {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     navigate("/login");
+  };
+
+  const openEdit = () => {
+    setEditForm({ name: user?.name || "", currentPassword: "", newPassword: "" });
+    setEditError("");
+    setEditSuccess(false);
+    setEditMode(true);
+  };
+
+  const submitEdit = async (e) => {
+    e.preventDefault();
+    setEditError("");
+    setEditLoading(true);
+    try {
+      const res = await API.put("/auth/me", editForm);
+      const updated = res.data.user;
+      localStorage.setItem("user", JSON.stringify({ ...user, name: updated.name }));
+      setEditSuccess(true);
+      setEditLoading(false);
+      setTimeout(() => { setEditMode(false); window.location.reload(); }, 1200);
+    } catch (err) {
+      setEditError(err.response?.data?.error || "Update failed");
+      setEditLoading(false);
+    }
   };
 
   const s = getStyles(dark, isMobile);
@@ -74,13 +103,59 @@ function Profile() {
             )}
           </div>
 
-          <div style={{ marginTop: "20px" }}>
+          <div style={{ marginTop: "20px", display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
+            <button onClick={openEdit} style={s.editBtn}>✏️ Edit Profile</button>
             <button onClick={logout} style={s.logoutBtn}>Logout</button>
           </div>
         </div>
       </div>
 
       <main style={s.content}>
+        {/* Edit profile form */}
+        {editMode && (
+          <div style={s.section}>
+            <h2 style={s.sectionTitle}>✏️ Edit Profile</h2>
+            {editSuccess && <div style={s.successMsg}>✅ Profile updated!</div>}
+            {editError && <div style={s.errorMsg}>⚠️ {editError}</div>}
+            <form onSubmit={submitEdit}>
+              <label style={s.formLabel}>Name</label>
+              <input
+                style={s.formInput}
+                value={editForm.name}
+                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                required
+              />
+              <label style={s.formLabel}>New password <span style={{ fontWeight: 400, opacity: 0.6 }}>(leave blank to keep current)</span></label>
+              <input
+                style={s.formInput}
+                type="password"
+                placeholder="••••••••"
+                value={editForm.newPassword}
+                onChange={(e) => setEditForm({ ...editForm, newPassword: e.target.value })}
+              />
+              {editForm.newPassword && (
+                <>
+                  <label style={s.formLabel}>Current password</label>
+                  <input
+                    style={s.formInput}
+                    type="password"
+                    placeholder="••••••••"
+                    value={editForm.currentPassword}
+                    onChange={(e) => setEditForm({ ...editForm, currentPassword: e.target.value })}
+                    required
+                  />
+                </>
+              )}
+              <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}>
+                <button type="submit" style={editLoading ? s.btnDisabled : s.orangeBtn} disabled={editLoading}>
+                  {editLoading ? "Saving..." : "Save changes →"}
+                </button>
+                <button type="button" style={s.cancelBtn} onClick={() => setEditMode(false)}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        )}
+
         {/* Saved businesses */}
         <div style={s.section}>
           <h2 style={s.sectionTitle}>
@@ -234,10 +309,21 @@ function getStyles(dark, isMobile) {
       textTransform: "uppercase",
       letterSpacing: "0.5px",
     },
-    logoutBtn: {
+    editBtn: {
       backgroundColor: "rgba(255,255,255,0.15)",
-      border: "1.5px solid white",
+      border: "1.5px solid rgba(255,255,255,0.6)",
       color: "white",
+      padding: "10px 24px",
+      borderRadius: "50px",
+      cursor: "pointer",
+      fontSize: "14px",
+      fontWeight: "600",
+      fontFamily: "Poppins, sans-serif",
+    },
+    logoutBtn: {
+      backgroundColor: "transparent",
+      border: "1.5px solid rgba(255,255,255,0.4)",
+      color: "rgba(255,255,255,0.8)",
       padding: "10px 24px",
       borderRadius: "50px",
       cursor: "pointer",
@@ -369,6 +455,38 @@ function getStyles(dark, isMobile) {
     reviewStars: { fontSize: "14px" },
     reviewBody: { fontSize: "14px", color: SECONDARY, lineHeight: "1.6", marginBottom: "6px" },
     reviewDate: { fontSize: "12px", color: MUTED },
+    formLabel: { display: "block", fontSize: "13px", fontWeight: "600", color: SECONDARY, marginBottom: "6px", marginTop: "14px" },
+    formInput: {
+      display: "block", width: "100%", padding: "12px 16px",
+      borderRadius: "12px", border: `1.5px solid ${dark ? "#5a4030" : "#e8e0d8"}`,
+      fontSize: "15px", outline: "none", boxSizing: "border-box",
+      fontFamily: "Poppins, sans-serif", color: DARK_TEXT,
+      backgroundColor: dark ? "#3d2c1e" : "#fafaf8",
+    },
+    orangeBtn: {
+      padding: "12px 28px", backgroundColor: ORANGE, color: "white",
+      border: "none", borderRadius: "12px", fontSize: "15px",
+      fontWeight: "700", cursor: "pointer", fontFamily: "Poppins, sans-serif",
+    },
+    btnDisabled: {
+      padding: "12px 28px", backgroundColor: "#ccc", color: "white",
+      border: "none", borderRadius: "12px", fontSize: "15px",
+      fontWeight: "700", cursor: "not-allowed", fontFamily: "Poppins, sans-serif",
+    },
+    cancelBtn: {
+      padding: "12px 28px", backgroundColor: dark ? "#3d2c1e" : "white",
+      border: `1.5px solid ${dark ? "#5a4030" : "#e8e0d8"}`, color: SECONDARY,
+      borderRadius: "12px", fontSize: "15px", fontWeight: "600",
+      cursor: "pointer", fontFamily: "Poppins, sans-serif",
+    },
+    successMsg: {
+      backgroundColor: dark ? "#1e3010" : "#eaf3de", color: dark ? "#7abf4a" : "#3b6d11",
+      padding: "12px 16px", borderRadius: "10px", fontSize: "14px", marginBottom: "12px",
+    },
+    errorMsg: {
+      backgroundColor: dark ? "#300a0a" : "#fff0f0", color: dark ? "#ff6b6b" : "#cc0000",
+      padding: "12px 16px", borderRadius: "10px", fontSize: "14px", marginBottom: "12px",
+    },
   };
 }
 

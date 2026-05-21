@@ -10,6 +10,7 @@ import Profile from "./pages/Profile";
 import OwnerDashboard from "./pages/OwnerDashboard";
 import Announcements from "./pages/Announcements";
 import ProtectedRoute from "./components/ProtectedRoute";
+import NotFound from "./pages/NotFound";
 
 function App() {
   return (
@@ -51,6 +52,7 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
     </ThemeProvider>

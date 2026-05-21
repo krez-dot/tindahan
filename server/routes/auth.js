@@ -114,4 +114,49 @@ router.get("/me", async (req, res) => {
     }
 });
 
+// PUT /api/auth/me — update name and/or password
+router.put("/me", async (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: "No token provided" });
+
+    const token = authHeader.split(" ")[1];
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const { name, currentPassword, newPassword } = req.body;
+
+        if (!name || !name.trim()) {
+            return res.status(400).json({ error: "Name is required" });
+        }
+
+        const userResult = await pool.query("SELECT * FROM users WHERE id = $1", [decoded.id]);
+        if (userResult.rows.length === 0) return res.status(404).json({ error: "User not found" });
+        const user = userResult.rows[0];
+
+        let password_hash = user.password_hash;
+
+        if (newPassword) {
+            if (newPassword.length < 8) {
+                return res.status(400).json({ error: "New password must be at least 8 characters" });
+            }
+            if (!currentPassword) {
+                return res.status(400).json({ error: "Current password is required to set a new password" });
+            }
+            const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
+            if (!isMatch) {
+                return res.status(400).json({ error: "Current password is incorrect" });
+            }
+            password_hash = await bcrypt.hash(newPassword, 10);
+        }
+
+        const result = await pool.query(
+            "UPDATE users SET name = $1, password_hash = $2 WHERE id = $3 RETURNING id, name, email, role",
+            [name.trim(), password_hash, decoded.id]
+        );
+
+        res.json({ user: result.rows[0] });
+    } catch (err) {
+        res.status(401).json({ error: "Invalid token" });
+    }
+});
+
 module.exports = router;

@@ -60,4 +60,24 @@ router.get("/:businessId", async (req, res) => {
     }
 });
 
+// DELETE /api/upload/:photoId — delete a photo (owner only)
+router.delete("/:photoId", auth, async (req, res) => {
+    try {
+        const photo = await pool.query(
+            `SELECT bp.*, b.owner_id FROM business_photos bp
+             JOIN businesses b ON bp.business_id = b.id
+             WHERE bp.id = $1`,
+            [req.params.photoId]
+        );
+        if (photo.rows.length === 0) return res.status(404).json({ error: "Photo not found" });
+        if (photo.rows[0].owner_id !== req.user.id) return res.status(403).json({ error: "Not authorized" });
+
+        await pool.query("DELETE FROM business_photos WHERE id = $1", [req.params.photoId]);
+        res.json({ message: "Photo deleted" });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: "Server error" });
+    }
+});
+
 module.exports = router;

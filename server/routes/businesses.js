@@ -17,20 +17,37 @@ const auth = (req, res, next) => {
     }
 };
 
-// GET /api/businesses — get all businesses (with category name + first photo)
+// GET /api/businesses — get businesses with optional pagination (?page=1&limit=12)
 router.get("/", async (req, res) => {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 12));
+    const offset = (page - 1) * limit;
+
     try {
-        const result = await pool.query(
-            `SELECT b.*, u.name AS owner_name, c.name AS category,
-             (SELECT url FROM business_photos WHERE business_id = b.id ORDER BY id ASC LIMIT 1) AS cover_photo,
-             (SELECT ROUND(AVG(rating)::numeric, 1) FROM reviews WHERE business_id = b.id) AS avg_rating,
-             (SELECT COUNT(*) FROM reviews WHERE business_id = b.id) AS review_count
-             FROM businesses b
-             JOIN users u ON b.owner_id = u.id
-             LEFT JOIN categories c ON b.category_id = c.id
-             ORDER BY b.created_at DESC`
-        );
-        res.json(result.rows);
+        const [dataResult, countResult] = await Promise.all([
+            pool.query(
+                `SELECT b.*, u.name AS owner_name, c.name AS category,
+                 (SELECT url FROM business_photos WHERE business_id = b.id ORDER BY id ASC LIMIT 1) AS cover_photo,
+                 (SELECT ROUND(AVG(rating)::numeric, 1) FROM reviews WHERE business_id = b.id) AS avg_rating,
+                 (SELECT COUNT(*) FROM reviews WHERE business_id = b.id) AS review_count
+                 FROM businesses b
+                 JOIN users u ON b.owner_id = u.id
+                 LEFT JOIN categories c ON b.category_id = c.id
+                 ORDER BY b.created_at DESC
+                 LIMIT $1 OFFSET $2`,
+                [limit, offset]
+            ),
+            pool.query("SELECT COUNT(*) FROM businesses"),
+        ]);
+
+        const total = parseInt(countResult.rows[0].count);
+        res.json({
+            businesses: dataResult.rows,
+            total,
+            page,
+            limit,
+            hasMore: offset + dataResult.rows.length < total,
+        });
     } catch (err) {
         console.error(err.message);
         res.status(500).json({ error: "Server error" });
