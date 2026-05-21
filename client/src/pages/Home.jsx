@@ -148,7 +148,13 @@ function Home() {
 
   // ── Render ────────────────────────────────────────────────────
   return (
-    <div style={{ backgroundColor: "#fdf8f3", minHeight: "100vh" }}>
+    <div
+      style={{
+        backgroundColor: "#fdf8f3",
+        minHeight: "100vh",
+        overflowX: "hidden",
+      }}
+    >
       {/* Hero */}
       <div style={styles.hero}>
         <div style={styles.heroInner}>
@@ -167,7 +173,7 @@ function Home() {
             <input
               style={styles.searchInput}
               type="text"
-              placeholder="Try: 'cheap breakfast near central' or 'salon sa tibag'..."
+              placeholder="Search businesses in Tarlac..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -388,12 +394,18 @@ const styles = {
   hero: {
     background:
       "linear-gradient(135deg, #3d2c1e 0%, #7a4a2a 60%, #e8601c 100%)",
-    padding: "64px 24px 80px",
+    padding:
+      "clamp(32px, 6vw, 64px) clamp(16px, 4vw, 24px) clamp(40px, 8vw, 80px)",
     color: "white",
   },
-  heroInner: { maxWidth: "700px", margin: "0 auto", textAlign: "center" },
+  heroInner: {
+    maxWidth: "700px",
+    margin: "0 auto",
+    textAlign: "center",
+    padding: "0 8px",
+  },
   heroTitle: {
-    fontSize: "42px",
+    fontSize: "clamp(26px, 5vw, 42px)",
     fontWeight: "800",
     lineHeight: "1.2",
     marginBottom: "16px",
@@ -408,7 +420,7 @@ const styles = {
     color: "white",
   },
   heroSub: {
-    fontSize: "18px",
+    fontSize: "clamp(14px, 3vw, 18px)",
     opacity: 0.85,
     marginBottom: "32px",
     color: "white",
