@@ -22,7 +22,9 @@ router.get("/", async (req, res) => {
     try {
         const result = await pool.query(
             `SELECT b.*, u.name AS owner_name, c.name AS category,
-             (SELECT url FROM business_photos WHERE business_id = b.id ORDER BY id ASC LIMIT 1) AS cover_photo
+             (SELECT url FROM business_photos WHERE business_id = b.id ORDER BY id ASC LIMIT 1) AS cover_photo,
+             (SELECT ROUND(AVG(rating)::numeric, 1) FROM reviews WHERE business_id = b.id) AS avg_rating,
+             (SELECT COUNT(*) FROM reviews WHERE business_id = b.id) AS review_count
              FROM businesses b
              JOIN users u ON b.owner_id = u.id
              LEFT JOIN categories c ON b.category_id = c.id
@@ -110,7 +112,9 @@ router.get("/search/ai", async (req, res) => {
 router.get("/:id", async (req, res) => {
     try {
         const result = await pool.query(
-            `SELECT b.*, u.name AS owner_name, c.name AS category
+            `SELECT b.*, u.name AS owner_name, c.name AS category,
+             (SELECT ROUND(AVG(rating)::numeric, 1) FROM reviews WHERE business_id = b.id) AS avg_rating,
+             (SELECT COUNT(*) FROM reviews WHERE business_id = b.id) AS review_count
              FROM businesses b
              JOIN users u ON b.owner_id = u.id
              LEFT JOIN categories c ON b.category_id = c.id

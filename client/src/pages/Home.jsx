@@ -371,6 +371,20 @@ function Home() {
                 </div>
                 <div style={styles.cardBody}>
                   <h3 style={styles.cardTitle}>{b.name}</h3>
+                  {b.avg_rating ? (
+                    <div style={styles.ratingRow}>
+                      <span style={styles.stars}>
+                        {"⭐".repeat(Math.round(b.avg_rating))}
+                      </span>
+                      <span style={styles.ratingNum}>{b.avg_rating}</span>
+                      <span style={styles.reviewCount}>
+                        ({b.review_count} review{b.review_count != 1 ? "s" : ""}
+                        )
+                      </span>
+                    </div>
+                  ) : (
+                    <p style={styles.noRating}>No reviews yet</p>
+                  )}
                   <p style={styles.cardDesc}>{b.description}</p>
                   <p style={styles.cardAddr}>📍 {b.address}</p>
                   <div style={styles.cardFooter}>
@@ -616,6 +630,11 @@ const styles = {
   },
   ownerTag: { fontSize: "12px", color: "#aaa" },
   viewMore: { fontSize: "13px", color: ORANGE, fontWeight: "600" },
+  ratingRow: { display: "flex", alignItems: "center", gap: "4px", margin: 0 },
+  stars: { fontSize: "12px" },
+  ratingNum: { fontSize: "13px", fontWeight: "700", color: "#2d2413" },
+  reviewCount: { fontSize: "12px", color: "#aaa" },
+  noRating: { fontSize: "12px", color: "#ccc", margin: 0, fontStyle: "italic" },
 };
 
 export default Home;
