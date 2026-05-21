@@ -285,18 +285,36 @@ function Home() {
           <div style={styles.grid}>
             {filtered.map((b) => (
               <Link to={`/business/${b.id}`} key={b.id} style={styles.card}>
-                <div style={styles.cardTop}>
-                  <span style={styles.cardEmoji}>🛖</span>
+                {/* Cover photo or fallback gradient */}
+                <div
+                  style={{
+                    ...styles.cardCover,
+                    ...(b.cover_photo
+                      ? { backgroundImage: `url(${b.cover_photo})` }
+                      : {
+                          background:
+                            "linear-gradient(135deg, #3d2c1e 0%, #7a4a2a 60%, #e8601c 100%)",
+                        }),
+                  }}
+                >
+                  {!b.cover_photo && (
+                    <span style={{ fontSize: "32px" }}>🛖</span>
+                  )}
                   {b.is_verified && (
                     <span style={styles.verified}>✅ Verified</span>
                   )}
+                  {b.category && (
+                    <span style={styles.categoryTag}>{b.category}</span>
+                  )}
                 </div>
-                <h3 style={styles.cardTitle}>{b.name}</h3>
-                <p style={styles.cardDesc}>{b.description}</p>
-                <p style={styles.cardAddr}>📍 {b.address}</p>
-                <div style={styles.cardFooter}>
-                  <span style={styles.ownerTag}>👤 {b.owner_name}</span>
-                  <span style={styles.viewMore}>View →</span>
+                <div style={styles.cardBody}>
+                  <h3 style={styles.cardTitle}>{b.name}</h3>
+                  <p style={styles.cardDesc}>{b.description}</p>
+                  <p style={styles.cardAddr}>📍 {b.address}</p>
+                  <div style={styles.cardFooter}>
+                    <span style={styles.ownerTag}>👤 {b.owner_name}</span>
+                    <span style={styles.viewMore}>View →</span>
+                  </div>
                 </div>
               </Link>
             ))}
@@ -444,31 +462,61 @@ const styles = {
   card: {
     backgroundColor: "white",
     borderRadius: "16px",
-    padding: "24px",
+    overflow: "hidden",
     textDecoration: "none",
     color: "inherit",
     boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
     border: "1px solid #f0e8df",
     display: "flex",
     flexDirection: "column",
-    gap: "8px",
   },
-  cardTop: {
+  cardCover: {
+    height: "160px",
+    backgroundSize: "cover",
+    backgroundPosition: "center",
     display: "flex",
+    alignItems: "flex-end",
     justifyContent: "space-between",
-    alignItems: "center",
+    padding: "12px",
+    position: "relative",
   },
-  cardEmoji: { fontSize: "28px" },
+  cardBody: {
+    padding: "16px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "6px",
+    flex: 1,
+  },
   verified: {
-    fontSize: "12px",
+    fontSize: "11px",
     backgroundColor: "#eaf3de",
     color: "#3b6d11",
     padding: "3px 10px",
     borderRadius: "20px",
+    fontWeight: "600",
+    alignSelf: "flex-start",
   },
-  cardTitle: { fontSize: "18px", fontWeight: "700", color: DARK, margin: 0 },
-  cardDesc: { fontSize: "14px", color: "#666", margin: 0, lineHeight: "1.5" },
-  cardAddr: { fontSize: "13px", color: "#999", margin: 0 },
+  categoryTag: {
+    fontSize: "11px",
+    backgroundColor: "rgba(0,0,0,0.45)",
+    color: "white",
+    padding: "3px 10px",
+    borderRadius: "20px",
+    fontWeight: "600",
+    backdropFilter: "blur(4px)",
+  },
+  cardTitle: { fontSize: "16px", fontWeight: "700", color: DARK, margin: 0 },
+  cardDesc: {
+    fontSize: "13px",
+    color: "#666",
+    margin: 0,
+    lineHeight: "1.5",
+    display: "-webkit-box",
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: "vertical",
+    overflow: "hidden",
+  },
+  cardAddr: { fontSize: "12px", color: "#999", margin: 0 },
   cardFooter: {
     display: "flex",
     justifyContent: "space-between",

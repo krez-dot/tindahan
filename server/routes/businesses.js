@@ -17,11 +17,12 @@ const auth = (req, res, next) => {
     }
 };
 
-// GET /api/businesses — get all businesses (with category name)
+// GET /api/businesses — get all businesses (with category name + first photo)
 router.get("/", async (req, res) => {
     try {
         const result = await pool.query(
-            `SELECT b.*, u.name AS owner_name, c.name AS category
+            `SELECT b.*, u.name AS owner_name, c.name AS category,
+             (SELECT url FROM business_photos WHERE business_id = b.id ORDER BY id ASC LIMIT 1) AS cover_photo
              FROM businesses b
              JOIN users u ON b.owner_id = u.id
              LEFT JOIN categories c ON b.category_id = c.id
