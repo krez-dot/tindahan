@@ -35,10 +35,10 @@ const generalLimiter = rateLimit({
     legacyHeaders: false,
 });
 
-// Strict limit for auth routes — 10 attempts per 15 minutes per IP
+// Strict limit for auth routes — 50 attempts per 15 minutes per IP
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 10,
+    max: 50,
     message: { error: "Too many login attempts, please try again later." },
     standardHeaders: true,
     legacyHeaders: false,

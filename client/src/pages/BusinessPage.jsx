@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import API from "../api/axios";
 
-// ReplyForm component — defined OUTSIDE BusinessPage
 function ReplyForm({ reviewId, onReplied }) {
   const [reply, setReply] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -19,44 +18,45 @@ function ReplyForm({ reviewId, onReplied }) {
   return (
     <form onSubmit={submit} style={{ marginTop: "12px" }}>
       <textarea
-        style={{
-          width: "100%",
-          padding: "10px 14px",
-          borderRadius: "10px",
-          border: "1.5px solid #e8e0d8",
-          fontSize: "14px",
-          fontFamily: "Poppins, sans-serif",
-          resize: "vertical",
-          boxSizing: "border-box",
-          backgroundColor: "#fdfaf7",
-        }}
+        style={replyStyles.textarea}
         placeholder="Reply to this review..."
         value={reply}
         onChange={(e) => setReply(e.target.value)}
         rows={2}
         required
       />
-      <button
-        type="submit"
-        disabled={submitting}
-        style={{
-          marginTop: "8px",
-          padding: "8px 20px",
-          backgroundColor: "#e8601c",
-          color: "white",
-          border: "none",
-          borderRadius: "8px",
-          fontSize: "13px",
-          fontWeight: "600",
-          cursor: "pointer",
-          fontFamily: "Poppins, sans-serif",
-        }}
-      >
+      <button type="submit" disabled={submitting} style={replyStyles.btn}>
         {submitting ? "Replying..." : "Reply →"}
       </button>
     </form>
   );
 }
+
+const replyStyles = {
+  textarea: {
+    width: "100%",
+    padding: "10px 14px",
+    borderRadius: "10px",
+    border: "1.5px solid #e8e0d8",
+    fontSize: "14px",
+    fontFamily: "Poppins, sans-serif",
+    resize: "vertical",
+    boxSizing: "border-box",
+    backgroundColor: "#fdfaf7",
+  },
+  btn: {
+    marginTop: "8px",
+    padding: "8px 20px",
+    backgroundColor: "#e8601c",
+    color: "white",
+    border: "none",
+    borderRadius: "8px",
+    fontSize: "13px",
+    fontWeight: "600",
+    cursor: "pointer",
+    fontFamily: "Poppins, sans-serif",
+  },
+};
 
 function BusinessPage() {
   const { id } = useParams();
@@ -70,6 +70,7 @@ function BusinessPage() {
   const [reviewForm, setReviewForm] = useState({ rating: 5, body: "" });
   const [reviewError, setReviewError] = useState("");
   const [reviewSuccess, setReviewSuccess] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
   const user = JSON.parse(localStorage.getItem("user") || "null");
 
   useEffect(() => {
@@ -84,26 +85,21 @@ function BusinessPage() {
   useEffect(() => {
     API.get(`/reviews/${id}`).then((res) => setReviews(res.data));
   }, [id]);
-
   useEffect(() => {
     API.get(`/upload/${id}`).then((res) => setPhotos(res.data));
   }, [id]);
-
-  useEffect(() => {
-    if (user) {
-      API.get(`/businesses/${id}/saved`)
-        .then((res) => setSaved(res.data.saved))
-        .catch(() => {});
-    }
-  }, [id]);
-
   useEffect(() => {
     API.get(`/announcements/${id}`).then((res) => setAnnouncements(res.data));
   }, [id]);
+  useEffect(() => {
+    if (user)
+      API.get(`/businesses/${id}/saved`)
+        .then((res) => setSaved(res.data.saved))
+        .catch(() => {});
+  }, [id]);
 
-  const fetchReviews = () => {
+  const fetchReviews = () =>
     API.get(`/reviews/${id}`).then((res) => setReviews(res.data));
-  };
 
   const toggleSave = async () => {
     if (!user) return navigate("/login");
@@ -124,6 +120,15 @@ function BusinessPage() {
     }
   };
 
+  const avgRating =
+    reviews.length > 0
+      ? (
+          reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+        ).toFixed(1)
+      : null;
+
+  const coverPhoto = photos.length > 0 ? photos[0].url : null;
+
   if (loading)
     return (
       <div style={styles.loadingPage}>
@@ -143,22 +148,50 @@ function BusinessPage() {
 
   return (
     <div style={styles.page}>
-      <div style={styles.banner}>
+      {/* ── Hero Banner ── */}
+      <div
+        style={{
+          ...styles.banner,
+          backgroundImage: coverPhoto
+            ? `url(${coverPhoto})`
+            : "linear-gradient(135deg, #3d2c1e 0%, #7a4a2a 60%, #e8601c 100%)",
+        }}
+      >
+        {/* Dark overlay for readability when photo is showing */}
+        {coverPhoto && <div style={styles.bannerOverlay} />}
+
         <div style={styles.bannerInner}>
           <button style={styles.backLink} onClick={() => navigate("/")}>
             ← Back
           </button>
-          <div style={styles.bannerEmoji}>🛖</div>
-          <h1 style={styles.bannerTitle}>{business.name}</h1>
-          {business.is_verified && (
-            <span style={styles.verifiedBadge}>✅ Verified Business</span>
-          )}
-          <div style={{ marginTop: "16px" }}>
+
+          <div style={styles.bannerContent}>
+            <div>
+              {!coverPhoto && <div style={styles.bannerEmoji}>🛖</div>}
+              {business.category && (
+                <span style={styles.categoryBadge}>{business.category}</span>
+              )}
+              <h1 style={styles.bannerTitle}>{business.name}</h1>
+              {business.is_verified && (
+                <span style={styles.verifiedBadge}>✅ Verified Business</span>
+              )}
+              {/* Rating in banner */}
+              {avgRating && (
+                <div style={styles.bannerRating}>
+                  {"⭐".repeat(Math.round(avgRating))}
+                  <span style={styles.bannerRatingNum}>{avgRating}</span>
+                  <span style={styles.bannerRatingCount}>
+                    ({reviews.length} reviews)
+                  </span>
+                </div>
+              )}
+            </div>
+
             <button
               onClick={toggleSave}
               style={saved ? styles.savedBtn : styles.saveBtn}
             >
-              {saved ? "❤️ Saved!" : "🤍 Save business"}
+              {saved ? "❤️ Saved!" : "🤍 Save"}
             </button>
           </div>
         </div>
@@ -195,14 +228,15 @@ function BusinessPage() {
           </div>
         )}
 
+        {/* ── Photos with lightbox ── */}
         {photos.length > 0 && (
           <div style={styles.card}>
-            <h2 style={styles.cardTitle}>📸 Photos</h2>
+            <h2 style={styles.cardTitle}>📸 Photos ({photos.length})</h2>
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-                gap: "12px",
+                gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+                gap: "10px",
               }}
             >
               {photos.map((p) => (
@@ -210,59 +244,64 @@ function BusinessPage() {
                   key={p.id}
                   src={p.url}
                   alt="business"
-                  style={{
-                    width: "100%",
-                    borderRadius: "12px",
-                    height: "150px",
-                    objectFit: "cover",
-                  }}
+                  onClick={() => setSelectedPhoto(p.url)}
+                  style={styles.photoThumb}
                 />
               ))}
             </div>
           </div>
         )}
 
+        {/* Lightbox */}
+        {selectedPhoto && (
+          <div style={styles.lightbox} onClick={() => setSelectedPhoto(null)}>
+            <img src={selectedPhoto} alt="full" style={styles.lightboxImg} />
+            <button
+              style={styles.lightboxClose}
+              onClick={() => setSelectedPhoto(null)}
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         <div style={styles.card}>
           <h2 style={styles.cardTitle}>Business details</h2>
           <div style={styles.detailsList}>
-            <div style={styles.detailRow}>
-              <span style={styles.detailIcon}>📍</span>
-              <div>
-                <p style={styles.detailLabel}>Address</p>
-                <p style={styles.detailValue}>
-                  {business.address || "Not provided"}
-                </p>
+            {[
+              {
+                icon: "📍",
+                label: "Address",
+                value: business.address || "Not provided",
+              },
+              {
+                icon: "📞",
+                label: "Phone",
+                value: business.phone || "Not provided",
+              },
+              { icon: "👤", label: "Owner", value: business.owner_name },
+              {
+                icon: "🏷️",
+                label: "Category",
+                value: business.category || "General",
+              },
+              {
+                icon: "📅",
+                label: "Listed on",
+                value: new Date(business.created_at).toLocaleDateString(
+                  "en-PH",
+                  { year: "numeric", month: "long", day: "numeric" },
+                ),
+              },
+            ].map(({ icon, label, value }) => (
+              <div key={label} style={styles.detailRow}>
+                <span style={styles.detailIcon}>{icon}</span>
+                <div>
+                  <p style={styles.detailLabel}>{label}</p>
+                  <p style={styles.detailValue}>{value}</p>
+                </div>
               </div>
-            </div>
-            <div style={styles.detailRow}>
-              <span style={styles.detailIcon}>📞</span>
-              <div>
-                <p style={styles.detailLabel}>Phone</p>
-                <p style={styles.detailValue}>
-                  {business.phone || "Not provided"}
-                </p>
-              </div>
-            </div>
-            <div style={styles.detailRow}>
-              <span style={styles.detailIcon}>👤</span>
-              <div>
-                <p style={styles.detailLabel}>Owner</p>
-                <p style={styles.detailValue}>{business.owner_name}</p>
-              </div>
-            </div>
-            <div style={styles.detailRow}>
-              <span style={styles.detailIcon}>📅</span>
-              <div>
-                <p style={styles.detailLabel}>Listed on</p>
-                <p style={styles.detailValue}>
-                  {new Date(business.created_at).toLocaleDateString("en-PH", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
-                </p>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
 
@@ -317,16 +356,12 @@ function BusinessPage() {
                       day: "numeric",
                     })}
                   </p>
-
-                  {/* Show existing reply */}
                   {r.owner_reply && (
                     <div style={styles.replyBox}>
                       <p style={styles.replyLabel}>🏪 Owner replied:</p>
                       <p style={styles.replyBody}>{r.owner_reply}</p>
                     </div>
                   )}
-
-                  {/* Reply form for owner */}
                   {user?.role === "owner" && !r.owner_reply && (
                     <ReplyForm reviewId={r.id} onReplied={fetchReviews} />
                   )}
@@ -356,11 +391,11 @@ function BusinessPage() {
                       setReviewForm({ ...reviewForm, rating: star })
                     }
                     style={{
-                      fontSize: "24px",
+                      fontSize: "28px",
                       background: "none",
                       border: "none",
                       cursor: "pointer",
-                      opacity: reviewForm.rating >= star ? 1 : 0.3,
+                      opacity: reviewForm.rating >= star ? 1 : 0.25,
                     }}
                   >
                     ⭐
@@ -413,15 +448,36 @@ const styles = {
     fontFamily: "Poppins, sans-serif",
     fontWeight: "600",
   },
+
+  // Banner
   banner: {
-    background:
-      "linear-gradient(135deg, #3d2c1e 0%, #7a4a2a 60%, #e8601c 100%)",
-    padding: "48px 24px",
-    color: "white",
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat",
+    padding: "0",
+    position: "relative",
+    minHeight: "300px",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "flex-end",
   },
-  bannerInner: { maxWidth: "720px", margin: "0 auto" },
+  bannerOverlay: {
+    position: "absolute",
+    inset: 0,
+    background:
+      "linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.65) 100%)",
+  },
+  bannerInner: {
+    position: "relative",
+    zIndex: 1,
+    padding: "24px",
+    maxWidth: "720px",
+    width: "100%",
+    margin: "0 auto",
+    boxSizing: "border-box",
+  },
   backLink: {
-    background: "rgba(255,255,255,0.15)",
+    background: "rgba(255,255,255,0.2)",
     border: "none",
     color: "white",
     padding: "8px 16px",
@@ -431,13 +487,32 @@ const styles = {
     fontFamily: "Poppins, sans-serif",
     marginBottom: "20px",
     display: "inline-block",
+    backdropFilter: "blur(4px)",
   },
-  bannerEmoji: { fontSize: "48px", marginBottom: "12px" },
-  bannerTitle: {
-    fontSize: "36px",
-    fontWeight: "800",
-    marginBottom: "12px",
+  bannerContent: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    gap: "16px",
+    flexWrap: "wrap",
+  },
+  bannerEmoji: { fontSize: "48px", marginBottom: "8px" },
+  categoryBadge: {
+    display: "inline-block",
+    backgroundColor: "rgba(255,255,255,0.2)",
+    backdropFilter: "blur(4px)",
     color: "white",
+    padding: "4px 12px",
+    borderRadius: "20px",
+    fontSize: "12px",
+    fontWeight: "600",
+    marginBottom: "8px",
+  },
+  bannerTitle: {
+    fontSize: "clamp(24px, 5vw, 36px)",
+    fontWeight: "800",
+    color: "white",
+    margin: "0 0 8px 0",
   },
   verifiedBadge: {
     display: "inline-block",
@@ -446,7 +521,17 @@ const styles = {
     borderRadius: "20px",
     fontSize: "14px",
     fontWeight: "600",
+    color: "white",
   },
+  bannerRating: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    marginTop: "10px",
+    fontSize: "16px",
+  },
+  bannerRatingNum: { fontWeight: "700", color: "white", fontSize: "16px" },
+  bannerRatingCount: { color: "rgba(255,255,255,0.75)", fontSize: "13px" },
   saveBtn: {
     backgroundColor: "rgba(255,255,255,0.15)",
     border: "1.5px solid white",
@@ -457,6 +542,8 @@ const styles = {
     fontSize: "14px",
     fontWeight: "600",
     fontFamily: "Poppins, sans-serif",
+    backdropFilter: "blur(4px)",
+    flexShrink: 0,
   },
   savedBtn: {
     backgroundColor: "white",
@@ -468,7 +555,9 @@ const styles = {
     fontSize: "14px",
     fontWeight: "700",
     fontFamily: "Poppins, sans-serif",
+    flexShrink: 0,
   },
+
   content: {
     maxWidth: "720px",
     margin: "0 auto",
@@ -491,6 +580,46 @@ const styles = {
     marginBottom: "16px",
   },
   description: { fontSize: "15px", color: "#555", lineHeight: "1.8" },
+
+  // Photos
+  photoThumb: {
+    width: "100%",
+    height: "140px",
+    objectFit: "cover",
+    borderRadius: "10px",
+    cursor: "pointer",
+    transition: "transform 0.2s",
+  },
+  lightbox: {
+    position: "fixed",
+    inset: 0,
+    backgroundColor: "rgba(0,0,0,0.88)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 9999,
+    padding: "24px",
+  },
+  lightboxImg: {
+    maxWidth: "90vw",
+    maxHeight: "85vh",
+    borderRadius: "12px",
+    objectFit: "contain",
+  },
+  lightboxClose: {
+    position: "absolute",
+    top: "20px",
+    right: "24px",
+    background: "rgba(255,255,255,0.15)",
+    border: "none",
+    color: "white",
+    fontSize: "22px",
+    cursor: "pointer",
+    borderRadius: "50%",
+    width: "40px",
+    height: "40px",
+  },
+
   announcementCard: {
     backgroundColor: "#fff3ec",
     borderRadius: "12px",
@@ -510,6 +639,7 @@ const styles = {
     marginBottom: "6px",
   },
   announcementDate: { fontSize: "12px", color: "#aaa" },
+
   detailsList: { display: "flex", flexDirection: "column", gap: "16px" },
   detailRow: { display: "flex", gap: "16px", alignItems: "flex-start" },
   detailIcon: { fontSize: "22px", marginTop: "2px" },
@@ -522,6 +652,7 @@ const styles = {
     marginBottom: "2px",
   },
   detailValue: { fontSize: "15px", color: DARK, fontWeight: "500" },
+
   contactBtn: {
     display: "block",
     backgroundColor: ORANGE,
@@ -550,6 +681,7 @@ const styles = {
     fontSize: "14px",
     textAlign: "center",
   },
+
   reviewCard: {
     backgroundColor: "#fdf8f3",
     borderRadius: "12px",
@@ -585,6 +717,7 @@ const styles = {
     marginBottom: "4px",
   },
   replyBody: { fontSize: "14px", color: "#555", lineHeight: "1.6" },
+
   success: {
     backgroundColor: "#eaf3de",
     color: "#3b6d11",
