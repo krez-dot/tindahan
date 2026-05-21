@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import API from "../api/axios";
@@ -51,6 +51,15 @@ const createColoredMarker = (category) => {
   });
 };
 
+// Component to fly map to a position
+function FlyToLocation({ position }) {
+  const map = useMap();
+  useEffect(() => {
+    if (position) map.flyTo(position, 15, { animate: true, duration: 1.2 });
+  }, [position, map]);
+  return null;
+}
+
 function Home() {
   const [businesses, setBusinesses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -58,7 +67,25 @@ function Home() {
   const [activeCategory, setActiveCategory] = useState("All");
   const [aiResult, setAiResult] = useState(null); // parsed AI response
   const [aiLoading, setAiLoading] = useState(false);
+  const [nearMe, setNearMe] = useState(null);
+  const [locating, setLocating] = useState(false);
   const navigate = useNavigate();
+
+  const handleNearMe = () => {
+    if (!navigator.geolocation)
+      return alert("Geolocation not supported on your browser.");
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setNearMe([pos.coords.latitude, pos.coords.longitude]);
+        setLocating(false);
+      },
+      () => {
+        alert("Could not get your location. Please allow location access.");
+        setLocating(false);
+      },
+    );
+  };
   const user = JSON.parse(localStorage.getItem("user") || "null");
 
   useEffect(() => {
@@ -235,6 +262,21 @@ function Home() {
         </div>
 
         {/* Map */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            marginBottom: "10px",
+          }}
+        >
+          <button
+            style={locating ? styles.nearMeBtnLoading : styles.nearMeBtn}
+            onClick={handleNearMe}
+            disabled={locating}
+          >
+            {locating ? "📡 Locating..." : "📍 Near me"}
+          </button>
+        </div>
         <div style={styles.mapWrap}>
           <MapContainer
             center={[15.4755, 120.596]}
@@ -242,6 +284,20 @@ function Home() {
             style={{ height: "380px", width: "100%", borderRadius: "16px" }}
           >
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            {nearMe && <FlyToLocation position={nearMe} />}
+            {nearMe && (
+              <Marker
+                position={nearMe}
+                icon={L.divIcon({
+                  html: `<div style="background:#3b82f6;width:18px;height:18px;border-radius:50%;border:3px solid white;box-shadow:0 0 0 3px rgba(59,130,246,0.4)"></div>`,
+                  className: "",
+                  iconSize: [18, 18],
+                  iconAnchor: [9, 9],
+                })}
+              >
+                <Popup>📍 You are here!</Popup>
+              </Marker>
+            )}
             {businesses
               .filter((b) => b.lat && b.lng)
               .map((b) => (
@@ -449,6 +505,29 @@ const styles = {
     boxShadow: "0 4px 24px rgba(0,0,0,0.10)",
     borderRadius: "16px",
     overflow: "hidden",
+  },
+  nearMeBtn: {
+    padding: "9px 20px",
+    backgroundColor: "white",
+    color: "#3b82f6",
+    border: "1.5px solid #3b82f6",
+    borderRadius: "50px",
+    fontSize: "14px",
+    fontWeight: "700",
+    cursor: "pointer",
+    fontFamily: "Poppins, sans-serif",
+    boxShadow: "0 2px 8px rgba(59,130,246,0.15)",
+  },
+  nearMeBtnLoading: {
+    padding: "9px 20px",
+    backgroundColor: "#eff6ff",
+    color: "#93c5fd",
+    border: "1.5px solid #93c5fd",
+    borderRadius: "50px",
+    fontSize: "14px",
+    fontWeight: "700",
+    cursor: "not-allowed",
+    fontFamily: "Poppins, sans-serif",
   },
   sectionHeader: { marginBottom: "20px" },
   sectionTitle: { fontSize: "22px", fontWeight: "700", color: DARK },
