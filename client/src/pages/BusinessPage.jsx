@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import API from "../api/axios";
+import { useTheme } from "../context/ThemeContext";
 
-function ReplyForm({ reviewId, onReplied }) {
+function ReplyForm({ reviewId, onReplied, dark }) {
   const [reply, setReply] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -16,51 +17,61 @@ function ReplyForm({ reviewId, onReplied }) {
   };
 
   return (
-    <form onSubmit={submit} style={{ marginTop: "12px" }}>
+    <form onSubmit={submit} style={{ marginTop: "14px" }}>
       <textarea
-        style={replyStyles.textarea}
+        style={{
+          width: "100%",
+          padding: "10px 14px",
+          borderRadius: "10px",
+          border: dark ? "1.5px solid #5a4030" : "1.5px solid #e8e0d8",
+          fontSize: "14px",
+          fontFamily: "Poppins, sans-serif",
+          resize: "vertical",
+          boxSizing: "border-box",
+          backgroundColor: dark ? "#3d2c1e" : "#fafaf8",
+          color: dark ? "#f0e8df" : "#2d2413",
+          outline: "none",
+        }}
         placeholder="Reply to this review..."
         value={reply}
         onChange={(e) => setReply(e.target.value)}
         rows={2}
         required
       />
-      <button type="submit" disabled={submitting} style={replyStyles.btn}>
+      <button
+        type="submit"
+        disabled={submitting}
+        style={{
+          marginTop: "8px",
+          padding: "8px 20px",
+          backgroundColor: "#e8601c",
+          color: "white",
+          border: "none",
+          borderRadius: "8px",
+          fontSize: "13px",
+          fontWeight: "600",
+          cursor: "pointer",
+          fontFamily: "Poppins, sans-serif",
+        }}
+      >
         {submitting ? "Replying..." : "Reply →"}
       </button>
     </form>
   );
 }
 
-const replyStyles = {
-  textarea: {
-    width: "100%",
-    padding: "10px 14px",
-    borderRadius: "10px",
-    border: "1.5px solid #e8e0d8",
-    fontSize: "14px",
-    fontFamily: "Poppins, sans-serif",
-    resize: "vertical",
-    boxSizing: "border-box",
-    backgroundColor: "#fdfaf7",
-  },
-  btn: {
-    marginTop: "8px",
-    padding: "8px 20px",
-    backgroundColor: "#e8601c",
-    color: "white",
-    border: "none",
-    borderRadius: "8px",
-    fontSize: "13px",
-    fontWeight: "600",
-    cursor: "pointer",
-    fontFamily: "Poppins, sans-serif",
-  },
-};
-
 function BusinessPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { dark } = useTheme();
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 640);
+
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth <= 640);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+
   const [business, setBusiness] = useState(null);
   const [loading, setLoading] = useState(true);
   const [reviews, setReviews] = useState([]);
@@ -75,31 +86,18 @@ function BusinessPage() {
 
   useEffect(() => {
     API.get(`/businesses/${id}`)
-      .then((res) => {
-        setBusiness(res.data);
-        setLoading(false);
-      })
+      .then((res) => { setBusiness(res.data); setLoading(false); })
       .catch(() => setLoading(false));
   }, [id]);
 
+  useEffect(() => { API.get(`/reviews/${id}`).then((res) => setReviews(res.data)); }, [id]);
+  useEffect(() => { API.get(`/upload/${id}`).then((res) => setPhotos(res.data)); }, [id]);
+  useEffect(() => { API.get(`/announcements/${id}`).then((res) => setAnnouncements(res.data)); }, [id]);
   useEffect(() => {
-    API.get(`/reviews/${id}`).then((res) => setReviews(res.data));
-  }, [id]);
-  useEffect(() => {
-    API.get(`/upload/${id}`).then((res) => setPhotos(res.data));
-  }, [id]);
-  useEffect(() => {
-    API.get(`/announcements/${id}`).then((res) => setAnnouncements(res.data));
-  }, [id]);
-  useEffect(() => {
-    if (user)
-      API.get(`/businesses/${id}/saved`)
-        .then((res) => setSaved(res.data.saved))
-        .catch(() => {});
+    if (user) API.get(`/businesses/${id}/saved`).then((res) => setSaved(res.data.saved)).catch(() => {});
   }, [id]);
 
-  const fetchReviews = () =>
-    API.get(`/reviews/${id}`).then((res) => setReviews(res.data));
+  const fetchReviews = () => API.get(`/reviews/${id}`).then((res) => setReviews(res.data));
 
   const toggleSave = async () => {
     if (!user) return navigate("/login");
@@ -122,651 +120,504 @@ function BusinessPage() {
 
   const avgRating =
     reviews.length > 0
-      ? (
-          reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-        ).toFixed(1)
+      ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
       : null;
 
   const coverPhoto = photos.length > 0 ? photos[0].url : null;
+  const s = getStyles(dark, isMobile);
 
   if (loading)
     return (
-      <div style={styles.loadingPage}>
-        <p style={styles.loadingText}>Loading business... 🛖</p>
+      <div style={s.loadingPage}>
+        <p style={s.loadingText}>Loading business... 🛖</p>
       </div>
     );
 
   if (!business)
     return (
-      <div style={styles.loadingPage}>
-        <p style={styles.loadingText}>Business not found 😢</p>
-        <button style={styles.backBtn} onClick={() => navigate("/")}>
-          ← Back to home
-        </button>
+      <div style={s.loadingPage}>
+        <p style={s.loadingText}>Business not found 😢</p>
+        <button style={s.orangeBtn} onClick={() => navigate("/")}>← Back to home</button>
       </div>
     );
 
   return (
-    <div style={styles.page}>
-      {/* ── Hero Banner ── */}
-      <div
-        style={{
-          ...styles.banner,
-          backgroundImage: coverPhoto
-            ? `url(${coverPhoto})`
-            : "linear-gradient(135deg, #3d2c1e 0%, #7a4a2a 60%, #e8601c 100%)",
-        }}
-      >
-        {/* Dark overlay for readability when photo is showing */}
-        {coverPhoto && <div style={styles.bannerOverlay} />}
+    <div style={s.page}>
 
-        <div style={styles.bannerInner}>
-          <button style={styles.backLink} onClick={() => navigate("/")}>
-            ← Back
-          </button>
+      {/* ── Banner ── */}
+      <div style={{
+        ...s.banner,
+        backgroundImage: coverPhoto
+          ? `url(${coverPhoto})`
+          : "linear-gradient(135deg, #3d2c1e 0%, #7a4a2a 60%, #e8601c 100%)",
+      }}>
+        <div style={s.bannerOverlay} />
 
-          <div style={styles.bannerContent}>
-            <div>
-              {!coverPhoto && <div style={styles.bannerEmoji}>🛖</div>}
-              {business.category && (
-                <span style={styles.categoryBadge}>{business.category}</span>
-              )}
-              <h1 style={styles.bannerTitle}>{business.name}</h1>
-              {business.is_verified && (
-                <span style={styles.verifiedBadge}>✅ Verified Business</span>
-              )}
-              {/* Rating in banner */}
+        {/* Back button — absolute top-left */}
+        <button style={s.backBtn} onClick={() => navigate("/")}>← Back</button>
+
+        {/* Glass strip at bottom */}
+        <div style={s.glassStrip}>
+          <div style={s.stripLeft}>
+            {business.category && (
+              <span style={s.catLabel}>{business.category}</span>
+            )}
+            <h1 style={s.bizName}>{business.name}</h1>
+            <div style={s.stripMeta}>
+              {business.is_verified && <span style={s.metaChip}>✅ Verified</span>}
               {avgRating && (
-                <div style={styles.bannerRating}>
-                  {"⭐".repeat(Math.round(avgRating))}
-                  <span style={styles.bannerRatingNum}>{avgRating}</span>
-                  <span style={styles.bannerRatingCount}>
-                    ({reviews.length} reviews)
-                  </span>
-                </div>
+                <span style={s.metaChip}>
+                  {"⭐".repeat(Math.round(avgRating))} {avgRating}
+                  <span style={{ opacity: 0.75, fontWeight: 400 }}> ({reviews.length} reviews)</span>
+                </span>
               )}
             </div>
+          </div>
 
-            <button
-              onClick={toggleSave}
-              style={saved ? styles.savedBtn : styles.saveBtn}
-            >
-              {saved ? "❤️ Saved!" : "🤍 Save"}
+          <div style={s.stripActions}>
+            {business.phone && (
+              <a href={`tel:${business.phone}`} style={s.iconBtn} aria-label={`Call ${business.name}`}>📞</a>
+            )}
+            {business.lat && business.lng && (
+              <a
+                href={`https://www.google.com/maps?q=${business.lat},${business.lng}`}
+                target="_blank"
+                rel="noreferrer"
+                style={s.iconBtn}
+                aria-label={`Open ${business.name} in Google Maps`}
+              >🗺️</a>
+            )}
+            <button onClick={toggleSave} style={saved ? s.iconBtnSaved : s.iconBtn} aria-label={saved ? "Unsave business" : "Save business"}>
+              {saved ? "❤️" : "🤍"}
             </button>
           </div>
         </div>
       </div>
 
-      <div style={styles.content}>
-        <div style={styles.card}>
-          <h2 style={styles.cardTitle}>About this business</h2>
-          <p style={styles.description}>
-            {business.description || "No description provided."}
-          </p>
+      {/* Lightbox */}
+      {selectedPhoto && (
+        <div style={s.lightbox} onClick={() => setSelectedPhoto(null)}>
+          <img src={selectedPhoto} alt="full" style={s.lightboxImg} />
+          <button style={s.lightboxClose} onClick={() => setSelectedPhoto(null)}>✕</button>
         </div>
+      )}
 
-        {announcements.length > 0 && (
-          <div style={styles.card}>
-            <h2 style={styles.cardTitle}>📢 Announcements</h2>
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "12px" }}
-            >
-              {announcements.map((a) => (
-                <div key={a.id} style={styles.announcementCard}>
-                  <p style={styles.announcementTitle}>{a.title}</p>
-                  {a.body && <p style={styles.announcementBody}>{a.body}</p>}
-                  <p style={styles.announcementDate}>
-                    {new Date(a.created_at).toLocaleDateString("en-PH", {
-                      month: "long",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+      {/* ── Content ── */}
+      <main style={s.content}>
 
-        {/* ── Photos with lightbox ── */}
-        {photos.length > 0 && (
-          <div style={styles.card}>
-            <h2 style={styles.cardTitle}>📸 Photos ({photos.length})</h2>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
-                gap: "10px",
-              }}
-            >
-              {photos.map((p) => (
-                <img
-                  key={p.id}
-                  src={p.url}
-                  alt="business"
-                  onClick={() => setSelectedPhoto(p.url)}
-                  style={styles.photoThumb}
-                />
-              ))}
-            </div>
-          </div>
-        )}
+        {/* About */}
+        <section style={s.section}>
+          <p style={s.sectionHead}>About</p>
+          <p style={s.body}>{business.description || "No description provided."}</p>
+        </section>
 
-        {/* Lightbox */}
-        {selectedPhoto && (
-          <div style={styles.lightbox} onClick={() => setSelectedPhoto(null)}>
-            <img src={selectedPhoto} alt="full" style={styles.lightboxImg} />
-            <button
-              style={styles.lightboxClose}
-              onClick={() => setSelectedPhoto(null)}
-            >
-              ✕
-            </button>
-          </div>
-        )}
+        <div style={s.divider} />
 
-        <div style={styles.card}>
-          <h2 style={styles.cardTitle}>Business details</h2>
-          <div style={styles.detailsList}>
+        {/* Details */}
+        <section style={s.section}>
+          <p style={s.sectionHead}>Details</p>
+          <div style={s.detailsGrid}>
             {[
-              {
-                icon: "📍",
-                label: "Address",
-                value: business.address || "Not provided",
-              },
-              {
-                icon: "📞",
-                label: "Phone",
-                value: business.phone || "Not provided",
-              },
+              { icon: "📍", label: "Address", value: business.address || "Not provided" },
+              { icon: "📞", label: "Phone", value: business.phone || "Not provided" },
               { icon: "👤", label: "Owner", value: business.owner_name },
+              { icon: "🏷️", label: "Category", value: business.category || "General" },
               {
-                icon: "🏷️",
-                label: "Category",
-                value: business.category || "General",
-              },
-              {
-                icon: "📅",
-                label: "Listed on",
-                value: new Date(business.created_at).toLocaleDateString(
-                  "en-PH",
-                  { year: "numeric", month: "long", day: "numeric" },
-                ),
+                icon: "📅", label: "Listed on",
+                value: new Date(business.created_at).toLocaleDateString("en-PH", {
+                  year: "numeric", month: "long", day: "numeric",
+                }),
               },
             ].map(({ icon, label, value }) => (
-              <div key={label} style={styles.detailRow}>
-                <span style={styles.detailIcon}>{icon}</span>
+              <div key={label} style={s.detailItem}>
+                <span style={s.detailIcon}>{icon}</span>
                 <div>
-                  <p style={styles.detailLabel}>{label}</p>
-                  <p style={styles.detailValue}>{value}</p>
+                  <p style={s.detailLabel}>{label}</p>
+                  <p style={s.detailValue}>{value}</p>
                 </div>
               </div>
             ))}
           </div>
-        </div>
+        </section>
 
-        <div style={styles.card}>
-          <h2 style={styles.cardTitle}>Contact this business</h2>
-          {business.phone ? (
-            <a href={`tel:${business.phone}`} style={styles.contactBtn}>
-              📞 Call {business.phone}
-            </a>
-          ) : (
-            <p style={styles.noContact}>No phone number listed</p>
-          )}
-          {business.lat && business.lng && (
-            <a
-              href={`https://www.google.com/maps?q=${business.lat},${business.lng}`}
-              target="_blank"
-              rel="noreferrer"
-              style={{ ...styles.mapsBtn, marginTop: "12px" }}
-            >
-              🗺️ Open in Google Maps
-            </a>
-          )}
-        </div>
+        {/* Announcements */}
+        {announcements.length > 0 && (
+          <>
+            <div style={s.divider} />
+            <section style={s.section}>
+              <p style={s.sectionHead}>Announcements</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                {announcements.map((a) => (
+                  <div key={a.id} style={s.announcementCard}>
+                    <p style={s.announcementTitle}>{a.title}</p>
+                    {a.body && <p style={s.announcementBody}>{a.body}</p>}
+                    <p style={s.announcementDate}>
+                      {new Date(a.created_at).toLocaleDateString("en-PH", {
+                        month: "long", day: "numeric", year: "numeric",
+                      })}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </>
+        )}
 
-        <div style={styles.card}>
-          <h2 style={styles.cardTitle}>
-            ⭐ Reviews {reviews.length > 0 && `(${reviews.length})`}
-          </h2>
+        {/* Photos */}
+        {photos.length > 0 && (
+          <>
+            <div style={s.divider} />
+            <section style={s.section}>
+              <p style={s.sectionHead}>Photos ({photos.length})</p>
+              <div style={s.photoGrid}>
+                {photos.map((p, i) => (
+                  <img
+                    key={p.id}
+                    src={p.url}
+                    alt={`${business.name} photo ${i + 1}`}
+                    onClick={() => setSelectedPhoto(p.url)}
+                    style={s.photoThumb}
+                  />
+                ))}
+              </div>
+            </section>
+          </>
+        )}
+
+        <div style={s.divider} />
+
+        {/* Reviews */}
+        <section style={s.section}>
+          <p style={s.sectionHead}>Reviews {reviews.length > 0 && `(${reviews.length})`}</p>
           {reviews.length === 0 ? (
-            <p style={{ color: "#aaa", fontSize: "14px" }}>
+            <p style={{ color: dark ? "#8a7a6a" : "#aaa", fontSize: "15px" }}>
               No reviews yet. Be the first!
             </p>
           ) : (
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "16px" }}
-            >
-              {reviews.map((r) => (
-                <div key={r.id} style={styles.reviewCard}>
-                  <div style={styles.reviewHeader}>
-                    <span style={styles.reviewerName}>
-                      👤 {r.reviewer_name}
-                    </span>
-                    <span style={styles.reviewStars}>
-                      {"⭐".repeat(r.rating)}
-                    </span>
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {reviews.map((r, i) => (
+                <div
+                  key={r.id}
+                  style={{
+                    ...s.reviewItem,
+                    borderBottom: i < reviews.length - 1 ? s.reviewItem.borderBottom : "none",
+                    paddingBottom: i < reviews.length - 1 ? s.reviewItem.paddingBottom : 0,
+                    marginBottom: i < reviews.length - 1 ? s.reviewItem.marginBottom : 0,
+                  }}
+                >
+                  <div style={s.reviewHeader}>
+                    <span style={s.reviewerName}>{r.reviewer_name}</span>
+                    <span style={s.reviewStars}>{"⭐".repeat(r.rating)}</span>
                   </div>
-                  <p style={styles.reviewBody}>{r.body}</p>
-                  <p style={styles.reviewDate}>
+                  <p style={s.reviewBody}>{r.body}</p>
+                  <p style={s.reviewDate}>
                     {new Date(r.created_at).toLocaleDateString("en-PH", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
+                      year: "numeric", month: "long", day: "numeric",
                     })}
                   </p>
                   {r.owner_reply && (
-                    <div style={styles.replyBox}>
-                      <p style={styles.replyLabel}>🏪 Owner replied:</p>
-                      <p style={styles.replyBody}>{r.owner_reply}</p>
+                    <div style={s.replyBox}>
+                      <p style={s.replyLabel}>🏪 Owner replied:</p>
+                      <p style={s.replyBody}>{r.owner_reply}</p>
                     </div>
                   )}
                   {user?.role === "owner" && !r.owner_reply && (
-                    <ReplyForm reviewId={r.id} onReplied={fetchReviews} />
+                    <ReplyForm reviewId={r.id} onReplied={fetchReviews} dark={dark} />
                   )}
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </section>
 
+        {/* Write a review */}
         {user && user.role !== "owner" && (
-          <div style={styles.card}>
-            <h2 style={styles.cardTitle}>✍️ Write a review</h2>
-            {reviewSuccess && (
-              <div style={styles.success}>✅ Review submitted! Salamat!</div>
-            )}
-            {reviewError && <div style={styles.error}>⚠️ {reviewError}</div>}
-            <form onSubmit={submitReview}>
-              <label style={styles.label}>Rating</label>
-              <div
-                style={{ display: "flex", gap: "8px", marginBottom: "16px" }}
-              >
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    type="button"
-                    onClick={() =>
-                      setReviewForm({ ...reviewForm, rating: star })
-                    }
-                    style={{
-                      fontSize: "28px",
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      opacity: reviewForm.rating >= star ? 1 : 0.25,
-                    }}
-                  >
-                    ⭐
-                  </button>
-                ))}
-              </div>
-              <label style={styles.label}>Your review</label>
-              <textarea
-                style={styles.textarea}
-                placeholder="Share your experience with this business..."
-                value={reviewForm.body}
-                onChange={(e) =>
-                  setReviewForm({ ...reviewForm, body: e.target.value })
-                }
-                rows={4}
-                required
-              />
-              <button type="submit" style={styles.btn}>
-                Submit review →
-              </button>
-            </form>
-          </div>
+          <>
+            <div style={s.divider} />
+            <section style={s.section}>
+              <p style={s.sectionHead}>Write a review</p>
+              {reviewSuccess && <div style={s.success}>✅ Review submitted! Salamat!</div>}
+              {reviewError && <div style={s.error}>⚠️ {reviewError}</div>}
+              <form onSubmit={submitReview}>
+                <label style={s.label}>Your rating</label>
+                <div style={{ display: "flex", gap: "4px", marginBottom: "20px" }}>
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setReviewForm({ ...reviewForm, rating: star })}
+                      aria-label={`Rate ${star} out of 5 stars`}
+                      aria-pressed={reviewForm.rating === star}
+                      style={{
+                        fontSize: "32px",
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        opacity: reviewForm.rating >= star ? 1 : 0.2,
+                        padding: "0 2px",
+                      }}
+                    >⭐</button>
+                  ))}
+                </div>
+                <label style={s.label}>Your review</label>
+                <textarea
+                  style={s.textarea}
+                  placeholder="Share your experience with this business..."
+                  value={reviewForm.body}
+                  onChange={(e) => setReviewForm({ ...reviewForm, body: e.target.value })}
+                  rows={4}
+                  required
+                />
+                <button type="submit" style={s.orangeBtn}>Submit review →</button>
+              </form>
+            </section>
+          </>
         )}
-      </div>
+
+        <div style={{ height: isMobile ? "32px" : "48px" }} />
+      </main>
     </div>
   );
 }
 
 const ORANGE = "#e8601c";
-const DARK = "#2d2413";
 
-const styles = {
-  page: { backgroundColor: "#fdf8f3", minHeight: "100vh" },
-  loadingPage: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: "60vh",
-    gap: "16px",
-  },
-  loadingText: { fontSize: "18px", color: "#888" },
-  backBtn: {
-    padding: "10px 24px",
-    backgroundColor: ORANGE,
-    color: "white",
-    border: "none",
-    borderRadius: "10px",
-    cursor: "pointer",
-    fontFamily: "Poppins, sans-serif",
-    fontWeight: "600",
-  },
+function getStyles(dark, isMobile) {
+  const TEXT       = dark ? "#f0e8df" : "#1c1007";
+  const SECONDARY  = dark ? "#c8bfb4" : "#5a4a38";
+  const MUTED      = dark ? "#8a7a6a" : "#a08878";
+  const PAGE_BG    = dark ? "#1a1208" : "#ffffff";
+  const DIVIDER    = dark ? "#2d2413" : "#f0ebe3";
+  const HEAD_COLOR = dark ? "#6a5a4a" : "#b0a090";
+  const INNER_BG   = dark ? "#241a0e" : "#fdf8f3";
+  const INPUT_BG   = dark ? "#3d2c1e" : "#fafaf8";
+  const INPUT_BORDER = dark ? "#5a4030" : "#e8e0d5";
 
-  // Banner
-  banner: {
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-    backgroundRepeat: "no-repeat",
-    padding: "0",
-    position: "relative",
-    minHeight: "300px",
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "flex-end",
-  },
-  bannerOverlay: {
-    position: "absolute",
-    inset: 0,
-    background:
-      "linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.65) 100%)",
-  },
-  bannerInner: {
-    position: "relative",
-    zIndex: 1,
-    padding: "24px",
-    maxWidth: "720px",
-    width: "100%",
-    margin: "0 auto",
-    boxSizing: "border-box",
-  },
-  backLink: {
-    background: "rgba(255,255,255,0.2)",
-    border: "none",
-    color: "white",
-    padding: "8px 16px",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontSize: "14px",
-    fontFamily: "Poppins, sans-serif",
-    marginBottom: "20px",
-    display: "inline-block",
-    backdropFilter: "blur(4px)",
-  },
-  bannerContent: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-    gap: "16px",
-    flexWrap: "wrap",
-  },
-  bannerEmoji: { fontSize: "48px", marginBottom: "8px" },
-  categoryBadge: {
-    display: "inline-block",
-    backgroundColor: "rgba(255,255,255,0.2)",
-    backdropFilter: "blur(4px)",
-    color: "white",
-    padding: "4px 12px",
-    borderRadius: "20px",
-    fontSize: "12px",
-    fontWeight: "600",
-    marginBottom: "8px",
-  },
-  bannerTitle: {
-    fontSize: "clamp(24px, 5vw, 36px)",
-    fontWeight: "800",
-    color: "white",
-    margin: "0 0 8px 0",
-  },
-  verifiedBadge: {
-    display: "inline-block",
-    backgroundColor: "rgba(255,255,255,0.2)",
-    padding: "6px 16px",
-    borderRadius: "20px",
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "white",
-  },
-  bannerRating: {
-    display: "flex",
-    alignItems: "center",
-    gap: "6px",
-    marginTop: "10px",
-    fontSize: "16px",
-  },
-  bannerRatingNum: { fontWeight: "700", color: "white", fontSize: "16px" },
-  bannerRatingCount: { color: "rgba(255,255,255,0.75)", fontSize: "13px" },
-  saveBtn: {
-    backgroundColor: "rgba(255,255,255,0.15)",
-    border: "1.5px solid white",
-    color: "white",
-    padding: "10px 24px",
-    borderRadius: "50px",
-    cursor: "pointer",
-    fontSize: "14px",
-    fontWeight: "600",
-    fontFamily: "Poppins, sans-serif",
-    backdropFilter: "blur(4px)",
-    flexShrink: 0,
-  },
-  savedBtn: {
-    backgroundColor: "white",
-    border: "none",
-    color: ORANGE,
-    padding: "10px 24px",
-    borderRadius: "50px",
-    cursor: "pointer",
-    fontSize: "14px",
-    fontWeight: "700",
-    fontFamily: "Poppins, sans-serif",
-    flexShrink: 0,
-  },
+  return {
+    page: { backgroundColor: PAGE_BG, minHeight: "100vh" },
+    loadingPage: {
+      display: "flex", flexDirection: "column", alignItems: "center",
+      justifyContent: "center", minHeight: "60vh", gap: "16px", backgroundColor: PAGE_BG,
+    },
+    loadingText: { fontSize: "18px", color: MUTED },
 
-  content: {
-    maxWidth: "720px",
-    margin: "0 auto",
-    padding: "32px 24px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "20px",
-  },
-  card: {
-    backgroundColor: "white",
-    borderRadius: "20px",
-    padding: "28px",
-    boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
-    border: "1px solid #f0e8df",
-  },
-  cardTitle: {
-    fontSize: "18px",
-    fontWeight: "700",
-    color: DARK,
-    marginBottom: "16px",
-  },
-  description: { fontSize: "15px", color: "#555", lineHeight: "1.8" },
+    // ── Banner ──
+    banner: {
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+      position: "relative",
+      minHeight: isMobile ? "320px" : "480px",
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "flex-end",
+    },
+    bannerOverlay: {
+      position: "absolute",
+      inset: 0,
+      background: "linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.78) 100%)",
+    },
+    backBtn: {
+      position: "absolute",
+      top: isMobile ? "14px" : "20px",
+      left: isMobile ? "14px" : "20px",
+      zIndex: 2,
+      background: "rgba(0,0,0,0.3)",
+      backdropFilter: "blur(8px)",
+      border: "1px solid rgba(255,255,255,0.2)",
+      color: "white",
+      padding: "8px 18px",
+      borderRadius: "50px",
+      cursor: "pointer",
+      fontSize: "14px",
+      fontFamily: "Poppins, sans-serif",
+      fontWeight: "500",
+    },
+    glassStrip: {
+      position: "relative",
+      zIndex: 1,
+      padding: isMobile ? "20px 16px 24px" : "28px 36px 32px",
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "flex-end",
+      gap: "16px",
+      flexWrap: isMobile ? "wrap" : "nowrap",
+    },
+    stripLeft: { display: "flex", flexDirection: "column", gap: "8px", flex: 1, minWidth: 0 },
+    catLabel: {
+      fontSize: "11px",
+      fontWeight: "700",
+      color: "rgba(255,255,255,0.7)",
+      textTransform: "uppercase",
+      letterSpacing: "1.5px",
+    },
+    bizName: {
+      fontSize: isMobile ? "clamp(22px, 7vw, 32px)" : "clamp(28px, 4vw, 48px)",
+      fontWeight: "800",
+      color: "white",
+      margin: 0,
+      lineHeight: 1.1,
+      textShadow: "0 2px 16px rgba(0,0,0,0.5)",
+    },
+    stripMeta: { display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" },
+    metaChip: { fontSize: "14px", color: "rgba(255,255,255,0.9)", fontWeight: "600" },
+    stripActions: {
+      display: "flex",
+      gap: "10px",
+      alignItems: "center",
+      flexShrink: 0,
+      paddingBottom: "4px",
+    },
+    iconBtn: {
+      width: "46px",
+      height: "46px",
+      borderRadius: "50%",
+      backgroundColor: "rgba(255,255,255,0.15)",
+      backdropFilter: "blur(10px)",
+      border: "1.5px solid rgba(255,255,255,0.3)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontSize: "18px",
+      textDecoration: "none",
+      cursor: "pointer",
+      fontFamily: "Poppins, sans-serif",
+    },
+    iconBtnSaved: {
+      width: "46px",
+      height: "46px",
+      borderRadius: "50%",
+      backgroundColor: "white",
+      border: "none",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontSize: "18px",
+      cursor: "pointer",
+      fontFamily: "Poppins, sans-serif",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+    },
 
-  // Photos
-  photoThumb: {
-    width: "100%",
-    height: "140px",
-    objectFit: "cover",
-    borderRadius: "10px",
-    cursor: "pointer",
-    transition: "transform 0.2s",
-  },
-  lightbox: {
-    position: "fixed",
-    inset: 0,
-    backgroundColor: "rgba(0,0,0,0.88)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 9999,
-    padding: "24px",
-  },
-  lightboxImg: {
-    maxWidth: "90vw",
-    maxHeight: "85vh",
-    borderRadius: "12px",
-    objectFit: "contain",
-  },
-  lightboxClose: {
-    position: "absolute",
-    top: "20px",
-    right: "24px",
-    background: "rgba(255,255,255,0.15)",
-    border: "none",
-    color: "white",
-    fontSize: "22px",
-    cursor: "pointer",
-    borderRadius: "50%",
-    width: "40px",
-    height: "40px",
-  },
+    // ── Content ──
+    content: {
+      maxWidth: "780px",
+      margin: "0 auto",
+      padding: isMobile ? "0 16px" : "0 24px",
+    },
+    section: { padding: isMobile ? "24px 0" : "36px 0" },
+    sectionHead: {
+      fontSize: "11px",
+      fontWeight: "700",
+      color: HEAD_COLOR,
+      textTransform: "uppercase",
+      letterSpacing: "1.5px",
+      marginBottom: "16px",
+      margin: "0 0 16px 0",
+    },
+    divider: { height: "1px", backgroundColor: DIVIDER, margin: 0 },
 
-  announcementCard: {
-    backgroundColor: "#fff3ec",
-    borderRadius: "12px",
-    padding: "16px",
-    border: "1px solid #fad4bc",
-  },
-  announcementTitle: {
-    fontWeight: "700",
-    fontSize: "15px",
-    color: DARK,
-    marginBottom: "6px",
-  },
-  announcementBody: {
-    fontSize: "14px",
-    color: "#555",
-    lineHeight: "1.6",
-    marginBottom: "6px",
-  },
-  announcementDate: { fontSize: "12px", color: "#aaa" },
+    body: { fontSize: "16px", color: SECONDARY, lineHeight: "1.85", margin: 0 },
 
-  detailsList: { display: "flex", flexDirection: "column", gap: "16px" },
-  detailRow: { display: "flex", gap: "16px", alignItems: "flex-start" },
-  detailIcon: { fontSize: "22px", marginTop: "2px" },
-  detailLabel: {
-    fontSize: "12px",
-    color: "#aaa",
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
-    marginBottom: "2px",
-  },
-  detailValue: { fontSize: "15px", color: DARK, fontWeight: "500" },
+    // Details grid
+    detailsGrid: {
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+      gap: "20px 32px",
+    },
+    detailItem: { display: "flex", gap: "14px", alignItems: "flex-start" },
+    detailIcon: { fontSize: "20px", flexShrink: 0, marginTop: "2px" },
+    detailLabel: {
+      fontSize: "11px", fontWeight: "700", color: MUTED,
+      textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "3px",
+    },
+    detailValue: { fontSize: "15px", color: TEXT, fontWeight: "500", margin: 0 },
 
-  contactBtn: {
-    display: "block",
-    backgroundColor: ORANGE,
-    color: "white",
-    padding: "13px 20px",
-    borderRadius: "12px",
-    textDecoration: "none",
-    fontWeight: "700",
-    fontSize: "15px",
-    textAlign: "center",
-  },
-  noContact: {
-    fontSize: "14px",
-    color: "#aaa",
-    textAlign: "center",
-    padding: "12px 0",
-  },
-  mapsBtn: {
-    display: "block",
-    border: `1.5px solid ${ORANGE}`,
-    color: ORANGE,
-    padding: "11px 20px",
-    borderRadius: "12px",
-    textDecoration: "none",
-    fontWeight: "600",
-    fontSize: "14px",
-    textAlign: "center",
-  },
+    // Announcements
+    announcementCard: {
+      backgroundColor: INNER_BG,
+      borderRadius: "14px",
+      padding: "18px 20px",
+      border: dark ? "1px solid #3d2c1e" : "1px solid #eddfd0",
+    },
+    announcementTitle: { fontWeight: "700", fontSize: "15px", color: TEXT, marginBottom: "6px" },
+    announcementBody: { fontSize: "14px", color: SECONDARY, lineHeight: "1.6", marginBottom: "8px" },
+    announcementDate: { fontSize: "12px", color: MUTED, margin: 0 },
 
-  reviewCard: {
-    backgroundColor: "#fdf8f3",
-    borderRadius: "12px",
-    padding: "16px",
-    border: "1px solid #f0e8df",
-  },
-  reviewHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "8px",
-  },
-  reviewerName: { fontWeight: "600", fontSize: "14px", color: DARK },
-  reviewStars: { fontSize: "14px" },
-  reviewBody: {
-    fontSize: "14px",
-    color: "#555",
-    lineHeight: "1.6",
-    marginBottom: "8px",
-  },
-  reviewDate: { fontSize: "12px", color: "#aaa" },
-  replyBox: {
-    marginTop: "12px",
-    backgroundColor: "#fff3ec",
-    borderRadius: "10px",
-    padding: "12px 16px",
-    borderLeft: "3px solid #e8601c",
-  },
-  replyLabel: {
-    fontSize: "12px",
-    fontWeight: "700",
-    color: "#e8601c",
-    marginBottom: "4px",
-  },
-  replyBody: { fontSize: "14px", color: "#555", lineHeight: "1.6" },
+    // Photos
+    photoGrid: {
+      display: "grid",
+      gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)",
+      gap: "8px",
+    },
+    photoThumb: {
+      width: "100%",
+      aspectRatio: "1",
+      objectFit: "cover",
+      borderRadius: "10px",
+      cursor: "pointer",
+      display: "block",
+    },
 
-  success: {
-    backgroundColor: "#eaf3de",
-    color: "#3b6d11",
-    padding: "12px 16px",
-    borderRadius: "10px",
-    fontSize: "14px",
-    marginBottom: "16px",
-  },
-  error: {
-    backgroundColor: "#fff0f0",
-    color: "#cc0000",
-    padding: "12px 16px",
-    borderRadius: "10px",
-    fontSize: "14px",
-    marginBottom: "16px",
-  },
-  label: {
-    display: "block",
-    fontSize: "13px",
-    fontWeight: "600",
-    color: "#555",
-    marginBottom: "6px",
-  },
-  textarea: {
-    display: "block",
-    width: "100%",
-    padding: "12px 16px",
-    borderRadius: "12px",
-    border: "1.5px solid #e8e0d8",
-    fontSize: "15px",
-    outline: "none",
-    boxSizing: "border-box",
-    fontFamily: "Poppins, sans-serif",
-    color: DARK,
-    backgroundColor: "#fdfaf7",
-    resize: "vertical",
-    marginBottom: "16px",
-  },
-  btn: {
-    padding: "13px 32px",
-    backgroundColor: ORANGE,
-    color: "white",
-    border: "none",
-    borderRadius: "12px",
-    fontSize: "15px",
-    fontWeight: "700",
-    cursor: "pointer",
-    fontFamily: "Poppins, sans-serif",
-  },
-};
+    // Lightbox
+    lightbox: {
+      position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.92)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      zIndex: 9999, padding: "24px",
+    },
+    lightboxImg: { maxWidth: "90vw", maxHeight: "85vh", borderRadius: "12px", objectFit: "contain" },
+    lightboxClose: {
+      position: "absolute", top: "20px", right: "24px",
+      background: "rgba(255,255,255,0.15)", border: "none", color: "white",
+      fontSize: "20px", cursor: "pointer", borderRadius: "50%",
+      width: "44px", height: "44px", display: "flex",
+      alignItems: "center", justifyContent: "center",
+    },
+
+    // Reviews
+    reviewItem: {
+      borderBottom: `1px solid ${DIVIDER}`,
+      paddingBottom: "24px",
+      marginBottom: "24px",
+    },
+    reviewHeader: {
+      display: "flex", justifyContent: "space-between",
+      alignItems: "center", marginBottom: "8px",
+    },
+    reviewerName: { fontWeight: "700", fontSize: "15px", color: TEXT },
+    reviewStars: { fontSize: "13px" },
+    reviewBody: { fontSize: "15px", color: SECONDARY, lineHeight: "1.7", marginBottom: "6px" },
+    reviewDate: { fontSize: "12px", color: MUTED, margin: 0 },
+    replyBox: {
+      marginTop: "14px", backgroundColor: INNER_BG,
+      borderRadius: "12px", padding: "14px 18px", borderLeft: `3px solid ${ORANGE}`,
+    },
+    replyLabel: { fontSize: "12px", fontWeight: "700", color: ORANGE, marginBottom: "4px" },
+    replyBody: { fontSize: "14px", color: SECONDARY, lineHeight: "1.6", margin: 0 },
+
+    // Write review
+    label: { display: "block", fontSize: "13px", fontWeight: "600", color: SECONDARY, marginBottom: "8px" },
+    textarea: {
+      display: "block", width: "100%", padding: "14px 16px",
+      borderRadius: "14px", border: `1.5px solid ${INPUT_BORDER}`,
+      fontSize: "15px", outline: "none", boxSizing: "border-box",
+      fontFamily: "Poppins, sans-serif", color: TEXT,
+      backgroundColor: INPUT_BG, resize: "vertical", marginBottom: "16px",
+    },
+    orangeBtn: {
+      padding: "13px 32px", backgroundColor: ORANGE, color: "white",
+      border: "none", borderRadius: "12px", fontSize: "15px",
+      fontWeight: "700", cursor: "pointer", fontFamily: "Poppins, sans-serif",
+    },
+    success: {
+      backgroundColor: dark ? "#1e3010" : "#eaf3de",
+      color: dark ? "#7abf4a" : "#3b6d11",
+      padding: "12px 16px", borderRadius: "10px", fontSize: "14px", marginBottom: "16px",
+    },
+    error: {
+      backgroundColor: dark ? "#300a0a" : "#fff0f0",
+      color: dark ? "#ff6b6b" : "#cc0000",
+      padding: "12px 16px", borderRadius: "10px", fontSize: "14px", marginBottom: "16px",
+    },
+  };
+}
 
 export default BusinessPage;

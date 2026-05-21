@@ -17,6 +17,23 @@ const auth = (req, res, next) => {
     }
 };
 
+// GET /api/reviews/user/mine — must be before /:businessId to avoid param collision
+router.get("/user/mine", auth, async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT r.*, b.name AS business_name
+       FROM reviews r
+       JOIN businesses b ON r.business_id = b.id
+       WHERE r.user_id = $1
+       ORDER BY r.created_at DESC`,
+            [req.user.id]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: "Server error" });
+    }
+});
+
 // GET /api/reviews/:businessId — get all reviews for a business
 router.get("/:businessId", async (req, res) => {
     try {
@@ -42,9 +59,14 @@ router.post("/:businessId", auth, async (req, res) => {
     if (!rating || rating < 1 || rating > 5) {
         return res.status(400).json({ error: "Rating must be between 1 and 5" });
     }
+    if (!body || body.trim().length === 0) {
+        return res.status(400).json({ error: "Review body is required" });
+    }
+    if (body.length > 2000) {
+        return res.status(400).json({ error: "Review must be under 2000 characters" });
+    }
 
     try {
-        // Check if user already reviewed this business
         const existing = await pool.query(
             "SELECT * FROM reviews WHERE user_id = $1 AND business_id = $2",
             [req.user.id, req.params.businessId]
@@ -56,7 +78,7 @@ router.post("/:businessId", auth, async (req, res) => {
         const result = await pool.query(
             `INSERT INTO reviews (user_id, business_id, rating, body)
        VALUES ($1, $2, $3, $4) RETURNING *`,
-            [req.user.id, req.params.businessId, rating, body]
+            [req.user.id, req.params.businessId, rating, body.trim()]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -65,26 +87,17 @@ router.post("/:businessId", auth, async (req, res) => {
     }
 });
 
-// GET /api/reviews/user/mine
-router.get("/user/mine", auth, async (req, res) => {
-    try {
-        const result = await pool.query(
-            `SELECT r.*, b.name AS business_name
-       FROM reviews r
-       JOIN businesses b ON r.business_id = b.id
-       WHERE r.user_id = $1
-       ORDER BY r.created_at DESC`,
-            [req.user.id]
-        );
-        res.json(result.rows);
-    } catch (err) {
-        res.status(500).json({ error: "Server error" });
-    }
-});
-
 // POST /api/reviews/:id/reply — owner replies to a review
 router.post("/:id/reply", auth, async (req, res) => {
     const { reply } = req.body;
+
+    if (!reply || reply.trim().length === 0) {
+        return res.status(400).json({ error: "Reply is required" });
+    }
+    if (reply.length > 1000) {
+        return res.status(400).json({ error: "Reply must be under 1000 characters" });
+    }
+
     try {
         const review = await pool.query(
             `SELECT r.*, b.owner_id FROM reviews r
@@ -101,7 +114,7 @@ router.post("/:id/reply", auth, async (req, res) => {
         const result = await pool.query(
             `UPDATE reviews SET owner_reply = $1, replied_at = NOW()
        WHERE id = $2 RETURNING *`,
-            [reply, req.params.id]
+            [reply.trim(), req.params.id]
         );
         res.json(result.rows[0]);
     } catch (err) {
@@ -109,4 +122,5 @@ router.post("/:id/reply", auth, async (req, res) => {
         res.status(500).json({ error: "Server error" });
     }
 });
+
 module.exports = router;

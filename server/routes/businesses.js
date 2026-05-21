@@ -135,6 +135,15 @@ router.post("/", auth, async (req, res) => {
         return res.status(403).json({ error: "Only owners can create listings" });
     }
     const { name, description, address, lat, lng, phone, category_id, barangay_id } = req.body;
+    if (!name || !name.trim()) {
+        return res.status(400).json({ error: "Business name is required" });
+    }
+    if (name.length > 200) {
+        return res.status(400).json({ error: "Business name must be under 200 characters" });
+    }
+    if (description && description.length > 5000) {
+        return res.status(400).json({ error: "Description must be under 5000 characters" });
+    }
     try {
         const result = await pool.query(
             `INSERT INTO businesses (owner_id, name, description, address, lat, lng, phone, category_id, barangay_id)

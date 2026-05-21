@@ -1,13 +1,22 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import API from "../api/axios";
+import { useTheme } from "../context/ThemeContext";
 
 function Profile() {
   const navigate = useNavigate();
+  const { dark } = useTheme();
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 640);
   const user = JSON.parse(localStorage.getItem("user") || "null");
   const [saved, setSaved] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth <= 640);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
 
   useEffect(() => {
     if (!user) return navigate("/login");
@@ -30,57 +39,79 @@ function Profile() {
     navigate("/login");
   };
 
+  const s = getStyles(dark, isMobile);
+
   if (loading)
     return (
-      <div style={styles.loadingPage}>
-        <p style={styles.loadingText}>Loading profile... 🛖</p>
+      <div style={s.loadingPage}>
+        <p style={s.loadingText}>Loading profile... 🛖</p>
       </div>
     );
 
   return (
-    <div style={styles.page}>
-      {/* Profile hero */}
-      <div style={styles.hero}>
-        <div style={styles.heroInner}>
-          <div style={styles.avatar}>{user?.name?.charAt(0).toUpperCase()}</div>
-          <h1 style={styles.name}>{user?.name}</h1>
-          <p style={styles.email}>{user?.email}</p>
-          <span style={styles.roleBadge}>
+    <div style={s.page}>
+      {/* Hero */}
+      <div style={s.hero}>
+        <div style={s.heroInner}>
+          <div style={s.avatar}>{user?.name?.charAt(0).toUpperCase()}</div>
+          <h1 style={s.name}>{user?.name}</h1>
+          <p style={s.email}>{user?.email}</p>
+          <span style={s.roleBadge}>
             {user?.role === "owner" ? "🏪 Business Owner" : "🛍️ Customer"}
           </span>
+
+          {/* Stats */}
+          <div style={s.statsRow}>
+            <div style={s.statItem}>
+              <span style={s.statNum}>{saved.length}</span>
+              <span style={s.statLabel}>Saved</span>
+            </div>
+            {user?.role !== "owner" && (
+              <div style={s.statItem}>
+                <span style={s.statNum}>{reviews.length}</span>
+                <span style={s.statLabel}>Reviews</span>
+              </div>
+            )}
+          </div>
+
           <div style={{ marginTop: "20px" }}>
-            <button onClick={logout} style={styles.logoutBtn}>
-              Logout
-            </button>
+            <button onClick={logout} style={s.logoutBtn}>Logout</button>
           </div>
         </div>
       </div>
 
-      <div style={styles.content}>
+      <main style={s.content}>
         {/* Saved businesses */}
-        <div style={styles.section}>
-          <h2 style={styles.sectionTitle}>
+        <div style={s.section}>
+          <h2 style={s.sectionTitle}>
             ❤️ Saved businesses {saved.length > 0 && `(${saved.length})`}
           </h2>
           {saved.length === 0 ? (
-            <div style={styles.empty}>
+            <div style={s.empty}>
               <p style={{ fontSize: "32px" }}>🤍</p>
               <p>No saved businesses yet!</p>
-              <Link to="/" style={styles.browseBtn}>
-                Browse businesses →
-              </Link>
+              <Link to="/" style={s.browseBtn}>Browse businesses →</Link>
             </div>
           ) : (
-            <div style={styles.grid}>
+            <div style={s.grid}>
               {saved.map((b) => (
-                <Link to={`/business/${b.id}`} key={b.id} style={styles.card}>
-                  <div style={styles.cardTop}>
-                    <span style={styles.cardEmoji}>🛖</span>
-                    {b.is_verified && <span style={styles.verified}>✅</span>}
+                <Link to={`/business/${b.id}`} key={b.id} style={s.card}>
+                  {b.cover_photo_url ? (
+                    <img src={b.cover_photo_url} alt={b.name} style={s.cardPhoto} />
+                  ) : (
+                    <div style={s.cardPhotoPlaceholder}>🛖</div>
+                  )}
+                  <div style={s.cardBody}>
+                    <div style={s.cardTop}>
+                      <h3 style={s.cardTitle}>{b.name}</h3>
+                      {b.is_verified && <span style={{ fontSize: "14px" }}>✅</span>}
+                    </div>
+                    {b.category && <span style={s.categoryBadge}>{b.category}</span>}
+                    <p style={s.cardDesc}>
+                      {b.description?.length > 80 ? b.description.slice(0, 80) + "…" : b.description}
+                    </p>
+                    <p style={s.cardAddr}>📍 {b.address}</p>
                   </div>
-                  <h3 style={styles.cardTitle}>{b.name}</h3>
-                  <p style={styles.cardDesc}>{b.description}</p>
-                  <p style={styles.cardAddr}>📍 {b.address}</p>
                 </Link>
               ))}
             </div>
@@ -89,43 +120,27 @@ function Profile() {
 
         {/* Reviews written */}
         {user?.role !== "owner" && (
-          <div style={styles.section}>
-            <h2 style={styles.sectionTitle}>
+          <div style={s.section}>
+            <h2 style={s.sectionTitle}>
               ✍️ My reviews {reviews.length > 0 && `(${reviews.length})`}
             </h2>
             {reviews.length === 0 ? (
-              <div style={styles.empty}>
+              <div style={s.empty}>
                 <p style={{ fontSize: "32px" }}>⭐</p>
                 <p>You haven't written any reviews yet!</p>
               </div>
             ) : (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "16px",
-                }}
-              >
+              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                 {reviews.map((r) => (
-                  <Link
-                    to={`/business/${r.business_id}`}
-                    key={r.id}
-                    style={styles.reviewCard}
-                  >
-                    <div style={styles.reviewHeader}>
-                      <span style={styles.reviewBusiness}>
-                        {r.business_name}
-                      </span>
-                      <span style={styles.reviewStars}>
-                        {"⭐".repeat(r.rating)}
-                      </span>
+                  <Link to={`/business/${r.business_id}`} key={r.id} style={s.reviewCard}>
+                    <div style={s.reviewHeader}>
+                      <span style={s.reviewBusiness}>{r.business_name}</span>
+                      <span style={s.reviewStars}>{"⭐".repeat(r.rating)}</span>
                     </div>
-                    <p style={styles.reviewBody}>{r.body}</p>
-                    <p style={styles.reviewDate}>
+                    <p style={s.reviewBody}>{r.body}</p>
+                    <p style={s.reviewDate}>
                       {new Date(r.created_at).toLocaleDateString("en-PH", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
+                        year: "numeric", month: "long", day: "numeric",
                       })}
                     </p>
                   </Link>
@@ -134,7 +149,7 @@ function Profile() {
             )}
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }
@@ -142,138 +157,219 @@ function Profile() {
 const ORANGE = "#e8601c";
 const DARK = "#2d2413";
 
-const styles = {
-  page: { backgroundColor: "#fdf8f3", minHeight: "100vh" },
-  loadingPage: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: "60vh",
-  },
-  loadingText: { fontSize: "18px", color: "#888" },
-  hero: {
-    background:
-      "linear-gradient(135deg, #3d2c1e 0%, #7a4a2a 60%, #e8601c 100%)",
-    padding: "48px 24px",
-    color: "white",
-    textAlign: "center",
-  },
-  heroInner: { maxWidth: "500px", margin: "0 auto" },
-  avatar: {
-    width: "72px",
-    height: "72px",
-    borderRadius: "50%",
-    backgroundColor: "rgba(255,255,255,0.2)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "32px",
-    fontWeight: "800",
-    margin: "0 auto 16px",
-    border: "3px solid rgba(255,255,255,0.4)",
-  },
-  name: { fontSize: "28px", fontWeight: "800", marginBottom: "6px", color: "white" },
-  email: { fontSize: "15px", opacity: 0.8, marginBottom: "12px" },
-  roleBadge: {
-    backgroundColor: "rgba(255,255,255,0.2)",
-    padding: "6px 16px",
-    borderRadius: "20px",
-    fontSize: "14px",
-    fontWeight: "600",
-  },
-  logoutBtn: {
-    backgroundColor: "rgba(255,255,255,0.15)",
-    border: "1.5px solid white",
-    color: "white",
-    padding: "10px 24px",
-    borderRadius: "50px",
-    cursor: "pointer",
-    fontSize: "14px",
-    fontWeight: "600",
-    fontFamily: "Poppins, sans-serif",
-  },
-  content: {
-    maxWidth: "900px",
-    margin: "0 auto",
-    padding: "32px 24px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "32px",
-  },
-  section: {
-    backgroundColor: "white",
-    borderRadius: "20px",
-    padding: "28px",
-    boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
-    border: "1px solid #f0e8df",
-  },
-  sectionTitle: {
-    fontSize: "20px",
-    fontWeight: "700",
-    color: DARK,
-    marginBottom: "20px",
-  },
-  empty: {
-    textAlign: "center",
-    padding: "32px 0",
-    color: "#888",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "8px",
-  },
-  browseBtn: {
-    marginTop: "8px",
-    color: ORANGE,
-    fontWeight: "700",
-    textDecoration: "none",
-    fontSize: "15px",
-  },
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-    gap: "16px",
-  },
-  card: {
-    backgroundColor: "#fdf8f3",
-    borderRadius: "16px",
-    padding: "20px",
-    textDecoration: "none",
-    color: "inherit",
-    border: "1px solid #f0e8df",
-    display: "flex",
-    flexDirection: "column",
-    gap: "8px",
-  },
-  cardTop: { display: "flex", justifyContent: "space-between" },
-  cardEmoji: { fontSize: "24px" },
-  verified: { fontSize: "16px" },
-  cardTitle: { fontSize: "16px", fontWeight: "700", color: DARK, margin: 0 },
-  cardDesc: { fontSize: "13px", color: "#666", margin: 0 },
-  cardAddr: { fontSize: "12px", color: "#999", margin: 0 },
-  reviewCard: {
-    backgroundColor: "#fdf8f3",
-    borderRadius: "14px",
-    padding: "18px",
-    textDecoration: "none",
-    color: "inherit",
-    border: "1px solid #f0e8df",
-  },
-  reviewHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "8px",
-  },
-  reviewBusiness: { fontWeight: "700", fontSize: "15px", color: ORANGE },
-  reviewStars: { fontSize: "14px" },
-  reviewBody: {
-    fontSize: "14px",
-    color: "#555",
-    lineHeight: "1.6",
-    marginBottom: "6px",
-  },
-  reviewDate: { fontSize: "12px", color: "#aaa" },
-};
+function getStyles(dark, isMobile) {
+  const DARK_TEXT = dark ? "#f0e8df" : DARK;
+  const CARD_BG = dark ? "#2d2413" : "white";
+  const CARD_BORDER = dark ? "#4a3828" : "#f0e8df";
+  const PAGE_BG = dark ? "#1a1208" : "#fdf8f3";
+  const SECONDARY = dark ? "#c8bfb4" : "#555";
+  const MUTED = dark ? "#8a7a6a" : "#aaa";
+  const INNER_CARD_BG = dark ? "#241a0e" : "#fdf8f3";
+
+  return {
+    page: { backgroundColor: PAGE_BG, minHeight: "100vh" },
+    loadingPage: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      minHeight: "60vh",
+      backgroundColor: PAGE_BG,
+    },
+    loadingText: { fontSize: "18px", color: MUTED },
+    hero: {
+      background: "linear-gradient(135deg, #3d2c1e 0%, #7a4a2a 60%, #e8601c 100%)",
+      padding: isMobile ? "32px 16px" : "48px 24px",
+      color: "white",
+      textAlign: "center",
+    },
+    heroInner: { maxWidth: "500px", margin: "0 auto" },
+    avatar: {
+      width: isMobile ? "60px" : "72px",
+      height: isMobile ? "60px" : "72px",
+      borderRadius: "50%",
+      backgroundColor: "rgba(255,255,255,0.2)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontSize: isMobile ? "26px" : "32px",
+      fontWeight: "800",
+      margin: "0 auto 16px",
+      border: "3px solid rgba(255,255,255,0.4)",
+    },
+    name: {
+      fontSize: isMobile ? "22px" : "28px",
+      fontWeight: "800",
+      marginBottom: "6px",
+      color: "white",
+    },
+    email: { fontSize: "14px", opacity: 0.8, marginBottom: "12px" },
+    roleBadge: {
+      backgroundColor: "rgba(255,255,255,0.2)",
+      padding: "6px 16px",
+      borderRadius: "20px",
+      fontSize: "14px",
+      fontWeight: "600",
+    },
+    statsRow: {
+      display: "flex",
+      justifyContent: "center",
+      gap: "32px",
+      marginTop: "20px",
+    },
+    statItem: {
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      gap: "2px",
+    },
+    statNum: {
+      fontSize: "24px",
+      fontWeight: "800",
+      color: "white",
+    },
+    statLabel: {
+      fontSize: "12px",
+      color: "rgba(255,255,255,0.75)",
+      fontWeight: "500",
+      textTransform: "uppercase",
+      letterSpacing: "0.5px",
+    },
+    logoutBtn: {
+      backgroundColor: "rgba(255,255,255,0.15)",
+      border: "1.5px solid white",
+      color: "white",
+      padding: "10px 24px",
+      borderRadius: "50px",
+      cursor: "pointer",
+      fontSize: "14px",
+      fontWeight: "600",
+      fontFamily: "Poppins, sans-serif",
+    },
+    content: {
+      maxWidth: "900px",
+      margin: "0 auto",
+      padding: isMobile ? "16px" : "32px 24px",
+      display: "flex",
+      flexDirection: "column",
+      gap: "32px",
+    },
+    section: {
+      backgroundColor: CARD_BG,
+      borderRadius: "20px",
+      padding: isMobile ? "18px" : "28px",
+      boxShadow: dark ? "0 2px 12px rgba(0,0,0,0.3)" : "0 2px 12px rgba(0,0,0,0.06)",
+      border: `1px solid ${CARD_BORDER}`,
+    },
+    sectionTitle: {
+      fontSize: isMobile ? "17px" : "20px",
+      fontWeight: "700",
+      color: DARK_TEXT,
+      marginBottom: "20px",
+    },
+    empty: {
+      textAlign: "center",
+      padding: "32px 0",
+      color: MUTED,
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      gap: "8px",
+    },
+    browseBtn: {
+      marginTop: "8px",
+      color: ORANGE,
+      fontWeight: "700",
+      textDecoration: "none",
+      fontSize: "15px",
+    },
+    grid: {
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(260px, 1fr))",
+      gap: "16px",
+    },
+    card: {
+      backgroundColor: INNER_CARD_BG,
+      borderRadius: "16px",
+      textDecoration: "none",
+      color: "inherit",
+      border: `1px solid ${CARD_BORDER}`,
+      display: "flex",
+      flexDirection: isMobile ? "row" : "column",
+      overflow: "hidden",
+    },
+    cardPhoto: {
+      width: isMobile ? "90px" : "100%",
+      height: isMobile ? "90px" : "130px",
+      objectFit: "cover",
+      flexShrink: 0,
+    },
+    cardPhotoPlaceholder: {
+      width: isMobile ? "90px" : "100%",
+      height: isMobile ? "90px" : "130px",
+      backgroundColor: dark ? "#3d2c1e" : "#f5ede4",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontSize: isMobile ? "28px" : "36px",
+      flexShrink: 0,
+    },
+    cardBody: {
+      padding: "14px",
+      display: "flex",
+      flexDirection: "column",
+      gap: "6px",
+      flex: 1,
+      minWidth: 0,
+    },
+    cardTop: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "4px" },
+    cardTitle: {
+      fontSize: "15px",
+      fontWeight: "700",
+      color: DARK_TEXT,
+      margin: 0,
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      whiteSpace: "nowrap",
+    },
+    categoryBadge: {
+      display: "inline-block",
+      backgroundColor: dark ? "#3d2413" : "#fff3ec",
+      color: ORANGE,
+      fontSize: "11px",
+      fontWeight: "600",
+      padding: "2px 10px",
+      borderRadius: "20px",
+      border: `1px solid ${dark ? "#7a4a2a" : "#fad4bc"}`,
+      width: "fit-content",
+    },
+    cardDesc: {
+      fontSize: "13px",
+      color: SECONDARY,
+      margin: 0,
+      lineHeight: "1.4",
+    },
+    cardAddr: { fontSize: "12px", color: MUTED, margin: 0 },
+    reviewCard: {
+      backgroundColor: INNER_CARD_BG,
+      borderRadius: "14px",
+      padding: "18px",
+      textDecoration: "none",
+      color: "inherit",
+      border: `1px solid ${CARD_BORDER}`,
+    },
+    reviewHeader: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: "8px",
+      flexWrap: "wrap",
+      gap: "4px",
+    },
+    reviewBusiness: { fontWeight: "700", fontSize: "15px", color: ORANGE },
+    reviewStars: { fontSize: "14px" },
+    reviewBody: { fontSize: "14px", color: SECONDARY, lineHeight: "1.6", marginBottom: "6px" },
+    reviewDate: { fontSize: "12px", color: MUTED },
+  };
+}
 
 export default Profile;

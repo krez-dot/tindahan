@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { ThemeProvider } from "./context/ThemeContext";
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
@@ -12,6 +13,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
   return (
+    <ThemeProvider>
     <BrowserRouter>
       <Navbar />
       <Routes>
@@ -51,6 +53,7 @@ function App() {
         />
       </Routes>
     </BrowserRouter>
+    </ThemeProvider>
   );
 }
 

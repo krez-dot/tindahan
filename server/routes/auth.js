@@ -8,6 +8,15 @@ const pool = require("../db");
 router.post("/register", async (req, res) => {
     const { name, email, password, role } = req.body;
 
+    if (!name || !email || !password) {
+        return res.status(400).json({ error: "Name, email, and password are required" });
+    }
+    if (password.length < 8) {
+        return res.status(400).json({ error: "Password must be at least 8 characters" });
+    }
+    const allowedRoles = ["customer", "owner"];
+    const safeRole = allowedRoles.includes(role) ? role : "customer";
+
     try {
         // Check if email already exists
         const existing = await pool.query(
@@ -25,7 +34,7 @@ router.post("/register", async (req, res) => {
         const result = await pool.query(
             `INSERT INTO users (name, email, password_hash, role)
        VALUES ($1, $2, $3, $4) RETURNING id, name, email, role`,
-            [name, email, password_hash, role || "customer"]
+            [name, email, password_hash, safeRole]
         );
 
         const user = result.rows[0];
@@ -47,6 +56,10 @@ router.post("/register", async (req, res) => {
 // POST /api/auth/login
 router.post("/login", async (req, res) => {
     const { email, password } = req.body;
+
+    if (!email || !password) {
+        return res.status(400).json({ error: "Email and password are required" });
+    }
 
     try {
         // Find user
