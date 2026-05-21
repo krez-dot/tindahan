@@ -2,9 +2,12 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from textblob import TextBlob
 import re
+import os
 
 app = Flask(__name__)
-CORS(app)
+
+# Only allow requests from our frontend
+CORS(app, origins=["http://localhost:5173", "http://localhost:5174"])
 
 # ── Sentiment Analysis ──────────────────────────────────────────
 @app.route('/sentiment', methods=['POST'])
@@ -16,8 +19,8 @@ def analyze_sentiment():
         return jsonify({ 'error': 'No text provided' }), 400
 
     blob = TextBlob(text)
-    polarity = blob.sentiment.polarity  # -1 to 1
-    subjectivity = blob.sentiment.subjectivity  # 0 to 1
+    polarity = blob.sentiment.polarity
+    subjectivity = blob.sentiment.subjectivity
 
     if polarity > 0.2:
         label = 'positive'
@@ -46,7 +49,6 @@ def smart_search():
     if not query:
         return jsonify({ 'error': 'No query provided' }), 400
 
-    # Category keywords mapping
     category_keywords = {
         'Food': ['food', 'eat', 'restaurant', 'karinderya', 'carinderia', 'lutong', 'kain',
                  'lunch', 'dinner', 'breakfast', 'almusal', 'tanghalian', 'hapunan',
@@ -64,7 +66,6 @@ def smart_search():
                       'training', 'course', 'learn', 'aral'],
     }
 
-    # Detect categories from query
     detected_categories = []
     for category, keywords in category_keywords.items():
         for keyword in keywords:
@@ -73,7 +74,6 @@ def smart_search():
                     detected_categories.append(category)
                 break
 
-    # Extract location hints
     location_hints = []
     tarlac_barangays = ['tibag', 'central', 'ligtasan', 'maliwalo', 'santo cristo',
                         'san juan', 'salapungan', 'romulo', 'amucao', 'cut-cut']
@@ -81,14 +81,12 @@ def smart_search():
         if barangay in query:
             location_hints.append(barangay)
 
-    # Price hints
     price_hints = None
     if any(word in query for word in ['cheap', 'mura', 'affordable', 'budget', 'sulit']):
         price_hints = 'budget'
     elif any(word in query for word in ['mahal', 'premium', 'luxury', 'high-end']):
         price_hints = 'premium'
 
-    # Clean search terms (remove common words)
     stop_words = ['find', 'near', 'around', 'looking', 'for', 'a', 'an', 'the',
                   'where', 'can', 'i', 'get', 'some', 'any', 'good', 'best', 'sa',
                   'ng', 'na', 'ang', 'mga', 'yung', 'dito', 'dto', 'need', 'want']
@@ -111,7 +109,6 @@ def classify_text():
     text = data.get('text', '').lower()
 
     tags = []
-
     food_words = ['food', 'eat', 'meal', 'dish', 'rice', 'menu', 'cook', 'kitchen',
                   'restaurant', 'cafe', 'breakfast', 'lunch', 'dinner', 'snack']
     service_words = ['repair', 'service', 'fix', 'install', 'clean', 'deliver', 'print']
@@ -132,4 +129,5 @@ def health():
     return jsonify({ 'status': 'ok', 'message': 'Tindahan AI service running 🤖' })
 
 if __name__ == '__main__':
-    app.run(port=5001, debug=True)
+    # debug=False for security — never run debug=True in production
+    app.run(port=5001, debug=False)
