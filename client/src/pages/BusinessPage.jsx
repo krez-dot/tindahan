@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import API from "../api/axios";
 import { useTheme } from "../context/ThemeContext";
+import { useToast } from "../context/ToastContext";
 
 function ReplyForm({ reviewId, onReplied, dark }) {
   const [reply, setReply] = useState("");
@@ -64,6 +66,7 @@ function BusinessPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { dark } = useTheme();
+  const showToast = useToast();
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 640);
 
   useEffect(() => {
@@ -80,7 +83,6 @@ function BusinessPage() {
   const [announcements, setAnnouncements] = useState([]);
   const [reviewForm, setReviewForm] = useState({ rating: 5, body: "" });
   const [reviewError, setReviewError] = useState("");
-  const [reviewSuccess, setReviewSuccess] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const user = JSON.parse(localStorage.getItem("user") || "null");
 
@@ -103,6 +105,12 @@ function BusinessPage() {
     if (!user) return navigate("/login");
     const res = await API.post(`/businesses/${id}/save`);
     setSaved(res.data.saved);
+    showToast(res.data.saved ? "❤️ Saved!" : "Removed from saved");
+  };
+
+  const handleShare = () => {
+    navigator.clipboard.writeText(window.location.href);
+    showToast("🔗 Link copied!", "info");
   };
 
   const submitReview = async (e) => {
@@ -110,9 +118,9 @@ function BusinessPage() {
     setReviewError("");
     try {
       await API.post(`/reviews/${id}`, reviewForm);
-      setReviewSuccess(true);
       setReviewForm({ rating: 5, body: "" });
       fetchReviews();
+      showToast("✅ Review submitted! Salamat!");
     } catch (err) {
       setReviewError(err.response?.data?.error || "Failed to submit review");
     }
@@ -143,6 +151,13 @@ function BusinessPage() {
 
   return (
     <div style={s.page}>
+      <Helmet>
+        <title>{business.name} — Tindahan</title>
+        <meta name="description" content={business.description ? business.description.slice(0, 155) : `${business.name} is a local business in Tarlac City. Find contact info, reviews, and more on Tindahan.`} />
+        <meta property="og:title" content={`${business.name} — Tindahan`} />
+        <meta property="og:description" content={business.description?.slice(0, 155) || `${business.name} on Tindahan`} />
+        {coverPhoto && <meta property="og:image" content={coverPhoto} />}
+      </Helmet>
 
       {/* ── Banner ── */}
       <div style={{
@@ -159,8 +174,12 @@ function BusinessPage() {
         {/* Glass strip at bottom */}
         <div style={s.glassStrip}>
           <div style={s.stripLeft}>
-            {business.category && (
-              <span style={s.catLabel}>{business.category}</span>
+            {(business.categories || business.category) && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "6px" }}>
+                {(business.categories || business.category).split(",").map((cat) => (
+                  <span key={cat} style={s.catLabel}>{cat.trim()}</span>
+                ))}
+              </div>
             )}
             <h1 style={s.bizName}>{business.name}</h1>
             <div style={s.stripMeta}>
@@ -189,6 +208,9 @@ function BusinessPage() {
             )}
             <button onClick={toggleSave} style={saved ? s.iconBtnSaved : s.iconBtn} aria-label={saved ? "Unsave business" : "Save business"}>
               {saved ? "❤️" : "🤍"}
+            </button>
+            <button onClick={handleShare} style={s.iconBtn} aria-label="Share this business">
+              🔗
             </button>
           </div>
         </div>
@@ -220,8 +242,9 @@ function BusinessPage() {
             {[
               { icon: "📍", label: "Address", value: business.address || "Not provided" },
               { icon: "📞", label: "Phone", value: business.phone || "Not provided" },
+              { icon: "🕐", label: "Hours", value: business.hours || "Not specified" },
               { icon: "👤", label: "Owner", value: business.owner_name },
-              { icon: "🏷️", label: "Category", value: business.category || "General" },
+              { icon: "🏷️", label: "Category", value: (business.categories || business.category || "General").split(",").map(c => c.trim()).join(" · ") },
               {
                 icon: "📅", label: "Listed on",
                 value: new Date(business.created_at).toLocaleDateString("en-PH", {
@@ -230,7 +253,7 @@ function BusinessPage() {
               },
             ].map(({ icon, label, value }) => (
               <div key={label} style={s.detailItem}>
-                <span style={s.detailIcon}>{icon}</span>
+                <div style={s.detailIconWrap}>{icon}</div>
                 <div>
                   <p style={s.detailLabel}>{label}</p>
                   <p style={s.detailValue}>{value}</p>
@@ -248,7 +271,7 @@ function BusinessPage() {
               <p style={s.sectionHead}>Announcements</p>
               <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                 {announcements.map((a) => (
-                  <div key={a.id} style={s.announcementCard}>
+                  <div key={a.id} style={s.announcementCard} className="card-hover">
                     <p style={s.announcementTitle}>{a.title}</p>
                     {a.body && <p style={s.announcementBody}>{a.body}</p>}
                     <p style={s.announcementDate}>
@@ -336,7 +359,6 @@ function BusinessPage() {
             <div style={s.divider} />
             <section style={s.section}>
               <p style={s.sectionHead}>Write a review</p>
-              {reviewSuccess && <div style={s.success}>✅ Review submitted! Salamat!</div>}
               {reviewError && <div style={s.error}>⚠️ {reviewError}</div>}
               <form onSubmit={submitReview}>
                 <label style={s.label}>Your rating</label>
@@ -523,8 +545,18 @@ function getStyles(dark, isMobile) {
       gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
       gap: "20px 32px",
     },
-    detailItem: { display: "flex", gap: "14px", alignItems: "flex-start" },
-    detailIcon: { fontSize: "20px", flexShrink: 0, marginTop: "2px" },
+    detailItem: { display: "flex", gap: "14px", alignItems: "center" },
+    detailIconWrap: {
+      width: "38px",
+      height: "38px",
+      borderRadius: "10px",
+      backgroundColor: dark ? "rgba(232,96,28,0.15)" : "rgba(232,96,28,0.1)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontSize: "16px",
+      flexShrink: 0,
+    },
     detailLabel: {
       fontSize: "11px", fontWeight: "700", color: MUTED,
       textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "3px",
@@ -537,6 +569,7 @@ function getStyles(dark, isMobile) {
       borderRadius: "14px",
       padding: "18px 20px",
       border: dark ? "1px solid #3d2c1e" : "1px solid #eddfd0",
+      borderLeft: "3px solid #e8601c",
     },
     announcementTitle: { fontWeight: "700", fontSize: "15px", color: TEXT, marginBottom: "6px" },
     announcementBody: { fontSize: "14px", color: SECONDARY, lineHeight: "1.6", marginBottom: "8px" },

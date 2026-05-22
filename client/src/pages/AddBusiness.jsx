@@ -62,8 +62,9 @@ function AddBusiness() {
 
   const [form, setForm] = useState({
     name: "", description: "", address: "", barangay: "",
-    lat: "", lng: "", phone: "", category_id: "",
+    lat: "", lng: "", phone: "", hours: "",
   });
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState([]);
   const [categories, setCategories] = useState([]);
   const [photos, setPhotos] = useState([]);
   const [markerPos, setMarkerPos] = useState(null);
@@ -97,7 +98,7 @@ function AddBusiness() {
         address: fullAddress,
         lat: parseFloat(form.lat) || null,
         lng: parseFloat(form.lng) || null,
-        category_id: form.category_id || null,
+        category_ids: selectedCategoryIds,
       });
 
       for (const photo of photos) {
@@ -153,6 +154,16 @@ function AddBusiness() {
                   onChange={handleChange}
                 />
               </div>
+              <div style={{ gridColumn: isMobile ? "1" : "1 / -1" }}>
+                <label style={s.label}>Business hours</label>
+                <input
+                  style={s.input}
+                  name="hours"
+                  placeholder="e.g. Mon–Sat: 8am–6pm, Sun: Closed"
+                  value={form.hours}
+                  onChange={handleChange}
+                />
+              </div>
             </div>
 
             <label style={s.label}>Description *</label>
@@ -166,23 +177,27 @@ function AddBusiness() {
               rows={4}
             />
 
-            <label style={s.label}>Category *</label>
+            <label style={s.label}>Categories *</label>
             <div style={s.categoryGrid}>
               {categories.map((cat) => (
                 <button
                   key={cat.id}
                   type="button"
-                  style={form.category_id === cat.id ? s.catBtnActive : s.catBtn}
-                  onClick={() => setForm({ ...form, category_id: cat.id })}
+                  style={selectedCategoryIds.includes(cat.id) ? s.catBtnActive : s.catBtn}
+                  onClick={() => setSelectedCategoryIds((prev) =>
+                    prev.includes(cat.id) ? prev.filter((id) => id !== cat.id) : [...prev, cat.id]
+                  )}
                 >
                   <span style={{ fontSize: "22px" }}>{CATEGORY_ICONS[cat.name] || "🏪"}</span>
                   <span style={{ fontSize: "13px", fontWeight: "600" }}>{cat.name}</span>
                 </button>
               ))}
             </div>
-            {!form.category_id && (
-              <p style={s.hint}>👆 Pick the category that best fits your business</p>
-            )}
+            <p style={s.hint}>
+              {selectedCategoryIds.length === 0
+                ? "👆 Pick one or more categories that fit your business"
+                : `✅ ${selectedCategoryIds.length} categor${selectedCategoryIds.length > 1 ? "ies" : "y"} selected`}
+            </p>
           </div>
 
           {/* Location */}

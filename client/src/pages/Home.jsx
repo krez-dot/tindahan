@@ -1,18 +1,10 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, lazy, Suspense } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
-import L from "leaflet";
+import { Helmet } from "react-helmet-async";
 import API from "../api/axios";
 import { useTheme } from "../context/ThemeContext";
 
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl:
-    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-});
+const BusinessMap = lazy(() => import("../components/BusinessMap"));
 
 const CATEGORIES = [
   "All",
@@ -23,43 +15,6 @@ const CATEGORIES = [
   "Education",
   "Others",
 ];
-
-const CATEGORY_COLORS = {
-  Food: { bg: "#e8601c", emoji: "🍚" },
-  Retail: { bg: "#3b82f6", emoji: "🛍️" },
-  Services: { bg: "#8b5cf6", emoji: "🔧" },
-  Health: { bg: "#ef4444", emoji: "💊" },
-  Education: { bg: "#10b981", emoji: "📚" },
-  Others: { bg: "#6b7280", emoji: "✨" },
-};
-
-const createColoredMarker = (category) => {
-  const config = CATEGORY_COLORS[category] || { bg: "#6b7280", emoji: "🏪" };
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="36" height="44" viewBox="0 0 36 44">
-      <ellipse cx="18" cy="41" rx="6" ry="3" fill="rgba(0,0,0,0.2)"/>
-      <path d="M18 0 C8 0 0 8 0 18 C0 30 18 44 18 44 C18 44 36 30 36 18 C36 8 28 0 18 0Z"
-            fill="${config.bg}" stroke="white" stroke-width="2"/>
-      <circle cx="18" cy="18" r="10" fill="white" opacity="0.25"/>
-      <text x="18" y="23" text-anchor="middle" font-size="13">${config.emoji}</text>
-    </svg>`;
-  return L.divIcon({
-    html: svg,
-    className: "",
-    iconSize: [36, 44],
-    iconAnchor: [18, 44],
-    popupAnchor: [0, -44],
-  });
-};
-
-// Component to fly map to a position
-function FlyToLocation({ position }) {
-  const map = useMap();
-  useEffect(() => {
-    if (position) map.flyTo(position, 15, { animate: true, duration: 1.2 });
-  }, [position, map]);
-  return null;
-}
 
 function Home() {
   const { dark } = useTheme();
@@ -74,6 +29,8 @@ function Home() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [mapBounds, setMapBounds] = useState(null);
+  const [filterByMap, setFilterByMap] = useState(false);
   const navigate = useNavigate();
 
   const handleNearMe = () => {
@@ -127,18 +84,30 @@ function Home() {
         .catch(() => {});
       return;
     }
+
+    // Skip AI if fewer than 3 actual letters (ignores numbers, symbols, gibberish like "1dz")
+    const letterCount = (query.match(/[a-zA-ZÀ-ɏ]/g) || []).length;
+    if (letterCount < 3) return;
+
     setAiLoading(true);
     try {
       const res = await API.get(
         `/businesses/search/ai?q=${encodeURIComponent(query)}`,
       );
-      const data = res.data; // { results: [...], ai_interpretation: {...} }
+      const data = res.data;
       setAiResult(data.ai_interpretation);
       if (data.ai_interpretation?.detected_categories?.length === 1) {
         setActiveCategory(data.ai_interpretation.detected_categories[0]);
       }
-      // Use DB-filtered results if we got any, otherwise keep current list
-      if (data.results?.length > 0) setBusinesses(data.results);
+      if (data.results?.length > 0) {
+        setBusinesses(data.results);
+      } else {
+        // No results — reset to all businesses so the page isn't a dead end
+        setAiResult({ ...data.ai_interpretation, noResults: true });
+        API.get("/businesses?page=1&limit=12")
+          .then((r) => { setBusinesses(r.data.businesses); setHasMore(r.data.hasMore); })
+          .catch(() => {});
+      }
     } catch {
       setAiResult(null);
     } finally {
@@ -163,8 +132,15 @@ function Home() {
 
   // ── Category pill filter on top of AI results ─────────────────
   const filtered = businesses.filter((b) => {
-    if (activeCategory === "All") return true;
-    return b.category?.toLowerCase() === activeCategory.toLowerCase();
+    if (activeCategory !== "All") {
+      const cats = (b.categories || b.category || "").split(",").map((c) => c.trim().toLowerCase());
+      if (!cats.includes(activeCategory.toLowerCase())) return false;
+    }
+    if (filterByMap && mapBounds && b.lat && b.lng) {
+      if (b.lat < mapBounds.south || b.lat > mapBounds.north) return false;
+      if (b.lng < mapBounds.west || b.lng > mapBounds.east) return false;
+    }
+    return true;
   });
 
   // ── Render ────────────────────────────────────────────────────
@@ -177,8 +153,14 @@ function Home() {
         overflowX: "hidden",
       }}
     >
+      <Helmet>
+        <title>Tindahan — Find Local Businesses in Tarlac City</title>
+        <meta name="description" content="Discover and support local businesses in Tarlac City, Philippines. Search for food, retail, services, health, and more." />
+        <meta property="og:title" content="Tindahan — Local Business Directory, Tarlac City" />
+        <meta property="og:description" content="Find the best local businesses near you in Tarlac City. Shop local, support your community!" />
+      </Helmet>
       {/* Hero */}
-      <div style={styles.hero}>
+      <div style={styles.hero} className="hero-tindahan">
         <div style={styles.heroInner}>
           <p style={styles.heroEyebrow}>🌺 Tarlac City, Philippines</p>
           <h1 style={styles.heroTitle}>
@@ -213,8 +195,8 @@ function Home() {
             )}
           </div>
 
-          {/* AI understanding badge */}
-          {aiResult && search && (
+          {/* AI understanding badge — only show if AI found something meaningful */}
+          {aiResult && search && (aiResult.detected_categories?.length > 0 || aiResult.location_hints?.length > 0 || aiResult.price_hints) && (
             <div style={styles.aiBadge}>
               <span style={styles.aiBadgeIcon}>🤖</span>
               <span>
@@ -294,9 +276,17 @@ function Home() {
           style={{
             display: "flex",
             justifyContent: "flex-end",
+            gap: "10px",
             marginBottom: "10px",
+            flexWrap: "wrap",
           }}
         >
+          <button
+            style={filterByMap ? styles.mapFilterBtnActive : styles.mapFilterBtn}
+            onClick={() => setFilterByMap((v) => !v)}
+          >
+            🗺️ {filterByMap ? "Filtering by map area" : "Filter by map area"}
+          </button>
           <button
             style={locating ? styles.nearMeBtnLoading : styles.nearMeBtn}
             onClick={handleNearMe}
@@ -306,51 +296,13 @@ function Home() {
           </button>
         </div>
         <div style={styles.mapWrap}>
-          <MapContainer
-            center={[15.4755, 120.596]}
-            zoom={13}
-            style={{ height: "380px", width: "100%", borderRadius: "16px" }}
-          >
-            <TileLayer
-              url={dark
-                ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              }
-            />
-            {nearMe && <FlyToLocation position={nearMe} />}
-            {nearMe && (
-              <Marker
-                position={nearMe}
-                icon={L.divIcon({
-                  html: `<div style="background:#3b82f6;width:18px;height:18px;border-radius:50%;border:3px solid white;box-shadow:0 0 0 3px rgba(59,130,246,0.4)"></div>`,
-                  className: "",
-                  iconSize: [18, 18],
-                  iconAnchor: [9, 9],
-                })}
-              >
-                <Popup>📍 You are here!</Popup>
-              </Marker>
-            )}
-            {filtered
-              .filter((b) => b.lat && b.lng)
-              .map((b) => (
-                <Marker
-                  key={b.id}
-                  position={[b.lat, b.lng]}
-                  icon={createColoredMarker(b.category)}
-                >
-                  <Popup>
-                    <strong>{b.name}</strong>
-                    <br />
-                    <span style={{ fontSize: "12px", color: "#888" }}>
-                      {b.category || "General"}
-                    </span>
-                    <br />
-                    {b.address}
-                  </Popup>
-                </Marker>
-              ))}
-          </MapContainer>
+          <Suspense fallback={
+            <div style={{ height: "380px", borderRadius: "16px", backgroundColor: dark ? "#2d2413" : "#f0ebe3", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "14px", color: dark ? "#8a7a6a" : "#aaa" }}>
+              Loading map...
+            </div>
+          }>
+            <BusinessMap businesses={filtered} nearMe={nearMe} dark={dark} onBoundsChange={setMapBounds} />
+          </Suspense>
         </div>
 
         {/* Listings */}
@@ -361,19 +313,40 @@ function Home() {
           </h2>
         </div>
 
+        {/* No-results banner — shows above the full list as a fallback */}
+        {aiResult?.noResults && (
+          <div style={{ backgroundColor: dark ? "#2d2413" : "#fff8f3", border: `1px solid ${dark ? "#4a3828" : "#fad4bc"}`, borderRadius: "14px", padding: "16px 20px", marginBottom: "16px", display: "flex", alignItems: "center", gap: "12px" }}>
+            <span style={{ fontSize: "24px" }}>🔍</span>
+            <div>
+              <p style={{ fontWeight: "600", fontSize: "14px", color: dark ? "#f0e8df" : "#2d2413" }}>No exact matches for "{search}"</p>
+              <p style={{ fontSize: "13px", color: dark ? "#8a7a6a" : "#aaa", marginTop: "2px" }}>Showing all businesses instead</p>
+            </div>
+          </div>
+        )}
+
         {loading ? (
-          <p style={{ color: "#888", padding: "24px 0" }}>
-            Loading businesses...
-          </p>
+          <div style={styles.grid}>
+            {[...Array(6)].map((_, i) => (
+              <div key={i} style={styles.skeletonCard}>
+                <div style={styles.skeletonCover} />
+                <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "10px" }}>
+                  <div style={{ ...styles.skeletonLine, width: "70%" }} />
+                  <div style={{ ...styles.skeletonLine, width: "40%", height: "12px" }} />
+                  <div style={{ ...styles.skeletonLine, width: "90%", height: "12px" }} />
+                  <div style={{ ...styles.skeletonLine, width: "55%", height: "12px" }} />
+                </div>
+              </div>
+            ))}
+          </div>
         ) : filtered.length === 0 ? (
           <div style={styles.empty}>
-            <p style={{ fontSize: "40px" }}>🔍</p>
-            <p>No businesses found. Try a different search!</p>
+            <p style={{ fontSize: "40px" }}>🏪</p>
+            <p>No businesses in this category yet.</p>
           </div>
         ) : (
           <div style={styles.grid}>
             {filtered.map((b) => (
-              <Link to={`/business/${b.id}`} key={b.id} style={styles.card}>
+              <Link to={`/business/${b.id}`} key={b.id} style={styles.card} className="card-hover">
                 {/* Cover photo or fallback gradient */}
                 <div
                   style={{
@@ -392,8 +365,10 @@ function Home() {
                   {b.is_verified && (
                     <span style={styles.verified}>✅ Verified</span>
                   )}
-                  {b.category && (
-                    <span style={styles.categoryTag}>{b.category}</span>
+                  {(b.categories || b.category) && (
+                    <span style={styles.categoryTag}>
+                      {(b.categories || b.category).split(",")[0].trim()}
+                    </span>
                   )}
                 </div>
                 <div style={styles.cardBody}>
@@ -426,25 +401,27 @@ function Home() {
 
         {/* Load more */}
         {!aiResult && hasMore && (
-          <div style={{ textAlign: "center", padding: "8px 0 32px" }}>
+          <div style={{ textAlign: "center", padding: "8px 0 40px" }}>
             <button
               onClick={loadMore}
               disabled={loadingMore}
               style={{
-                padding: "13px 40px",
-                backgroundColor: loadingMore ? "#ccc" : "white",
-                color: loadingMore ? "white" : dark ? "#f0e8df" : "#2d2413",
-                border: dark ? "1.5px solid #4a3828" : "1.5px solid #e8e0d8",
+                padding: "13px 44px",
+                backgroundColor: "transparent",
+                color: loadingMore ? (dark ? "#6a5a4a" : "#ccc") : "#e8601c",
+                border: loadingMore
+                  ? `2px solid ${dark ? "#4a3828" : "#e8e0d8"}`
+                  : "2px solid #e8601c",
                 borderRadius: "50px",
                 fontSize: "15px",
-                fontWeight: "600",
+                fontWeight: "700",
                 cursor: loadingMore ? "not-allowed" : "pointer",
                 fontFamily: "Poppins, sans-serif",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                backgroundColor: dark ? "#2d2413" : "white",
+                transition: "opacity 0.15s",
+                opacity: loadingMore ? 0.5 : 1,
               }}
             >
-              {loadingMore ? "Loading..." : "Load more businesses"}
+              {loadingMore ? "Loading..." : "Load more →"}
             </button>
           </div>
         )}
@@ -471,7 +448,7 @@ function getStyles(dark) {
       padding: "clamp(32px, 6vw, 64px) clamp(16px, 4vw, 24px) clamp(40px, 8vw, 80px)",
       color: "white",
     },
-    heroInner: { maxWidth: "700px", margin: "0 auto", textAlign: "center", padding: "0 8px" },
+    heroInner: { maxWidth: "700px", margin: "0 auto", textAlign: "center", padding: "0 8px", position: "relative", zIndex: 1 },
     heroTitle: { fontSize: "clamp(26px, 5vw, 42px)", fontWeight: "800", lineHeight: "1.2", marginBottom: "16px", color: "white" },
     heroEyebrow: { fontSize: "14px", letterSpacing: "2px", opacity: 0.8, marginBottom: "12px", textTransform: "uppercase", color: "white" },
     heroSub: { fontSize: "clamp(14px, 3vw, 18px)", opacity: 0.85, marginBottom: "32px", color: "white" },
@@ -539,7 +516,29 @@ function getStyles(dark) {
       fontWeight: "700",
       fontFamily: "Poppins, sans-serif",
     },
-    mapWrap: { marginBottom: "36px", boxShadow: "0 4px 24px rgba(0,0,0,0.10)", borderRadius: "16px", overflow: "hidden" },
+    mapWrap: { marginBottom: "36px", boxShadow: "0 4px 24px rgba(0,0,0,0.12)", borderRadius: "18px", overflow: "hidden", border: dark ? "1.5px solid #3d2c1e" : "1.5px solid #e8e0d8" },
+    mapFilterBtn: {
+      padding: "9px 20px",
+      backgroundColor: dark ? "#2d2413" : "white",
+      color: dark ? "#c8bfb4" : "#555",
+      border: dark ? "1.5px solid #5a4030" : "1.5px solid #e0d5c8",
+      borderRadius: "50px",
+      fontSize: "14px",
+      fontWeight: "600",
+      cursor: "pointer",
+      fontFamily: "Poppins, sans-serif",
+    },
+    mapFilterBtnActive: {
+      padding: "9px 20px",
+      backgroundColor: dark ? "#3d1a00" : "#fff3ec",
+      color: ORANGE,
+      border: `1.5px solid ${ORANGE}`,
+      borderRadius: "50px",
+      fontSize: "14px",
+      fontWeight: "700",
+      cursor: "pointer",
+      fontFamily: "Poppins, sans-serif",
+    },
     nearMeBtn: {
       padding: "9px 20px",
       backgroundColor: dark ? "#1e2d3d" : "white",
@@ -603,6 +602,22 @@ function getStyles(dark) {
     ratingNum: { fontSize: "13px", fontWeight: "700", color: TEXT },
     reviewCount: { fontSize: "12px", color: MUTED },
     noRating: { fontSize: "12px", color: MUTED, margin: 0, fontStyle: "italic" },
+    skeletonCard: {
+      backgroundColor: dark ? "#2d2413" : "white",
+      borderRadius: "18px",
+      overflow: "hidden",
+      border: dark ? "1px solid #4a3828" : "1px solid #f0e8df",
+    },
+    skeletonCover: {
+      width: "100%", height: "160px",
+      backgroundColor: dark ? "#3d2c1e" : "#f0ebe3",
+      animation: "pulse 1.5s ease-in-out infinite",
+    },
+    skeletonLine: {
+      height: "14px", borderRadius: "6px",
+      backgroundColor: dark ? "#3d2c1e" : "#f0ebe3",
+      animation: "pulse 1.5s ease-in-out infinite",
+    },
   };
 }
 

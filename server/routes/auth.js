@@ -14,7 +14,7 @@ router.post("/register", async (req, res) => {
     if (password.length < 8) {
         return res.status(400).json({ error: "Password must be at least 8 characters" });
     }
-    const allowedRoles = ["customer", "owner"];
+    const allowedRoles = ["customer", "owner"]; // admin can only be set directly in the DB
     const safeRole = allowedRoles.includes(role) ? role : "customer";
 
     try {

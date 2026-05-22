@@ -7,10 +7,9 @@ require("dotenv").config();
 const app = express();
 
 // ── CORS — only allow your frontend origin ──────────────────────
-const allowedOrigins = [
-    "http://localhost:5173",
-    "http://localhost:5174",
-];
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(",").map((o) => o.trim())
+    : ["http://localhost:5173", "http://localhost:5174"];
 app.use(cors({
     origin: (origin, callback) => {
         // Allow requests with no origin (mobile apps, curl, Postman)

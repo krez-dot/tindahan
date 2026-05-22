@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { HelmetProvider } from "react-helmet-async";
 import { ThemeProvider } from "./context/ThemeContext";
+import { ToastProvider } from "./context/ToastContext";
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
@@ -11,10 +13,13 @@ import OwnerDashboard from "./pages/OwnerDashboard";
 import Announcements from "./pages/Announcements";
 import ProtectedRoute from "./components/ProtectedRoute";
 import NotFound from "./pages/NotFound";
+import AdminPage from "./pages/AdminPage";
 
 function App() {
   return (
+    <HelmetProvider>
     <ThemeProvider>
+    <ToastProvider>
     <BrowserRouter>
       <Navbar />
       <Routes>
@@ -52,10 +57,21 @@ function App() {
             </ProtectedRoute>
           }
         />
+        {/* Admin only */}
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute role="admin">
+              <AdminPage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
+    </ToastProvider>
     </ThemeProvider>
+    </HelmetProvider>
   );
 }
 

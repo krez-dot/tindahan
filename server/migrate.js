@@ -2,6 +2,7 @@ const pool = require("./db");
 
 const createTables = async () => {
     try {
+        // Base tables
         await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -36,7 +37,6 @@ const createTables = async () => {
         lat FLOAT,
         lng FLOAT,
         phone VARCHAR(20),
-        hours JSONB,
         is_verified BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT NOW()
       );
@@ -49,9 +49,55 @@ const createTables = async () => {
         body TEXT,
         created_at TIMESTAMP DEFAULT NOW()
       );
+
+      CREATE TABLE IF NOT EXISTS saved_businesses (
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        business_id UUID REFERENCES businesses(id) ON DELETE CASCADE,
+        saved_at TIMESTAMP DEFAULT NOW(),
+        PRIMARY KEY (user_id, business_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS announcements (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        business_id UUID REFERENCES businesses(id) ON DELETE CASCADE,
+        title VARCHAR(200) NOT NULL,
+        body TEXT,
+        expires_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS business_photos (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        business_id UUID REFERENCES businesses(id) ON DELETE CASCADE,
+        url TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
     `);
 
-        console.log("✅ All tables created successfully!");
+        // Incremental migrations — safe to re-run (IF NOT EXISTS / ADD COLUMN IF NOT EXISTS)
+        await pool.query(`
+      ALTER TABLE businesses ADD COLUMN IF NOT EXISTS hours TEXT;
+      ALTER TABLE businesses ADD COLUMN IF NOT EXISTS verification_requested BOOLEAN DEFAULT FALSE;
+      ALTER TABLE businesses ADD COLUMN IF NOT EXISTS view_count INTEGER DEFAULT 0;
+      ALTER TABLE businesses ADD COLUMN IF NOT EXISTS verification_rejection_reason TEXT;
+    `);
+
+        await pool.query(`
+      CREATE TABLE IF NOT EXISTS business_categories (
+        business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+        category_id UUID NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+        PRIMARY KEY (business_id, category_id)
+      );
+    `);
+
+        // Migrate existing single-category data into business_categories
+        await pool.query(`
+      INSERT INTO business_categories (business_id, category_id)
+      SELECT id, category_id FROM businesses WHERE category_id IS NOT NULL
+      ON CONFLICT DO NOTHING;
+    `);
+
+        console.log("✅ All tables and migrations applied successfully!");
         process.exit(0);
     } catch (err) {
         console.error("❌ Migration failed:", err.message);

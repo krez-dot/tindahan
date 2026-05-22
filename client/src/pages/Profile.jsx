@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import API from "../api/axios";
 import { useTheme } from "../context/ThemeContext";
+import { useToast } from "../context/ToastContext";
 
 function Profile() {
   const navigate = useNavigate();
   const { dark } = useTheme();
+  const showToast = useToast();
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 640);
   const user = JSON.parse(localStorage.getItem("user") || "null");
   const [saved, setSaved] = useState([]);
@@ -59,7 +61,7 @@ function Profile() {
       const res = await API.put("/auth/me", editForm);
       const updated = res.data.user;
       localStorage.setItem("user", JSON.stringify({ ...user, name: updated.name }));
-      setEditSuccess(true);
+      showToast("✅ Profile updated!");
       setEditLoading(false);
       setTimeout(() => { setEditMode(false); window.location.reload(); }, 1200);
     } catch (err) {
@@ -170,7 +172,7 @@ function Profile() {
           ) : (
             <div style={s.grid}>
               {saved.map((b) => (
-                <Link to={`/business/${b.id}`} key={b.id} style={s.card}>
+                <Link to={`/business/${b.id}`} key={b.id} style={s.card} className="card-hover">
                   {b.cover_photo_url ? (
                     <img src={b.cover_photo_url} alt={b.name} style={s.cardPhoto} />
                   ) : (
@@ -207,7 +209,7 @@ function Profile() {
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                 {reviews.map((r) => (
-                  <Link to={`/business/${r.business_id}`} key={r.id} style={s.reviewCard}>
+                  <Link to={`/business/${r.business_id}`} key={r.id} style={s.reviewCard} className="card-hover">
                     <div style={s.reviewHeader}>
                       <span style={s.reviewBusiness}>{r.business_name}</span>
                       <span style={s.reviewStars}>{"⭐".repeat(r.rating)}</span>
@@ -259,17 +261,21 @@ function getStyles(dark, isMobile) {
     },
     heroInner: { maxWidth: "500px", margin: "0 auto" },
     avatar: {
-      width: isMobile ? "60px" : "72px",
-      height: isMobile ? "60px" : "72px",
+      width: isMobile ? "64px" : "80px",
+      height: isMobile ? "64px" : "80px",
       borderRadius: "50%",
-      backgroundColor: "rgba(255,255,255,0.2)",
+      background: "linear-gradient(135deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.15) 100%)",
+      backdropFilter: "blur(8px)",
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
-      fontSize: isMobile ? "26px" : "32px",
-      fontWeight: "800",
+      fontSize: isMobile ? "28px" : "34px",
+      fontWeight: "900",
       margin: "0 auto 16px",
-      border: "3px solid rgba(255,255,255,0.4)",
+      border: "2.5px solid rgba(255,255,255,0.6)",
+      boxShadow: "0 4px 20px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.4)",
+      color: "white",
+      textShadow: "0 2px 8px rgba(0,0,0,0.3)",
     },
     name: {
       fontSize: isMobile ? "22px" : "28px",

@@ -43,6 +43,9 @@ function Navbar() {
                 {user?.role === "owner" && (
                   <Link to="/dashboard" style={s.link}>Dashboard</Link>
                 )}
+                {user?.role === "admin" && (
+                  <Link to="/admin" style={s.adminLink}>🛡️ Admin</Link>
+                )}
                 <Link to="/profile" style={s.link}>Profile</Link>
                 <button onClick={logout} style={s.btn}>Logout</button>
               </>
@@ -75,6 +78,9 @@ function Navbar() {
             <>
               {user?.role === "owner" && (
                 <Link to="/dashboard" style={s.mobileLink} onClick={close}>📊 Dashboard</Link>
+              )}
+              {user?.role === "admin" && (
+                <Link to="/admin" style={s.mobileLink} onClick={close}>🛡️ Admin</Link>
               )}
               <Link to="/profile" style={s.mobileLink} onClick={close}>👤 Profile</Link>
               <button onClick={() => { logout(); close(); }} style={s.mobileBtn}>
@@ -132,6 +138,12 @@ function getStyles(dark) {
       padding: "4px 8px",
     },
     desktopLinks: { display: "flex", gap: "20px", alignItems: "center" },
+    adminLink: {
+      color: "#e8601c",
+      textDecoration: "none",
+      fontSize: "15px",
+      fontWeight: "700",
+    },
     link: {
       color: dark ? "#f0e8df" : "#2d2413",
       textDecoration: "none",
