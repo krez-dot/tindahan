@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git push *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(npx vite *)",
+      "PowerShell(Get-ChildItem \"c:\\\\Users\\\\mjgar\\\\tindahan\\\\admin\" -Exclude vendor -Recurse | Where-Object { !$_.PSIsContainer } | Select-Object FullName | Select-Object -First 30)",
+      "PowerShell(cd \"c:\\\\Users\\\\mjgar\\\\tindahan\"; $env:PGPASSWORD=\"admin123\"; psql -U postgres -d tindahan -c \"ALTER TABLE businesses ADD COLUMN IF NOT EXISTS hours TEXT; ALTER TABLE businesses ADD COLUMN IF NOT EXISTS verification_requested BOOLEAN DEFAULT FALSE;\" 2>&1)",
+      "Bash(npm run *)"
+    ]
+  }
+}
